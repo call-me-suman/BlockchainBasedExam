@@ -5,8 +5,9 @@ import { useRouter } from "next/navigation";
 import {
   useIsStudentVerified,
   useGetAllExams,
-  useExamFunctions,
   useGetQuestions,
+  useIsStudentSubmitted,
+  useGetStudentSubmission,
 } from "../../../utils/blockchain";
 import { useActiveAccount } from "thirdweb/react";
 
@@ -23,14 +24,17 @@ interface Exam {
 export default function StudentDashboard() {
   const router = useRouter();
   const account = useActiveAccount();
-  const address = account?.address;
+  const address = account?.address || "";
   const [loading, setLoading] = useState(true);
   const [exams, setExams] = useState<Exam[]>([]);
   const [selectedExamId, setSelectedExamId] = useState<bigint | null>(null);
+  const [viewSubmissionId, setViewSubmissionId] = useState<bigint | null>(null);
+  const [currentExamIndex, setCurrentExamIndex] = useState<number | null>(null);
+  const [currentTime, setCurrentTime] = useState(BigInt(0));
 
   // Get verification status
   const { data: isVerified, isLoading: verificationLoading } =
-    useIsStudentVerified(address || "");
+    useIsStudentVerified(address);
 
   // Get all exams with proper typing
   const { data: allExams, isLoading: examsLoading } = useGetAllExams();
@@ -40,15 +44,64 @@ export default function StudentDashboard() {
     selectedExamId || BigInt(0)
   );
 
+  // Get submission status for current exam in focus
+  const { data: isSubmitted, isLoading: submissionStatusLoading } =
+    useIsStudentSubmitted(
+      address,
+      currentExamIndex !== null && exams[currentExamIndex]
+        ? exams[currentExamIndex].id
+        : BigInt(0)
+    );
+
+  const { data: submissionCid, isLoading: submissionCidLoading } =
+    useGetStudentSubmission(viewSubmissionId || BigInt(0), address);
+
+  useEffect(() => {
+    setCurrentTime(BigInt(Math.floor(Date.now() / 1000)));
+  }, []);
+
   // Navigate to exam page when questions are loaded
+
   useEffect(() => {
     if (selectedExamId && questionsData && !questionsLoading) {
-      // The questionsData should be the IPFS CID
       router.push(`/exams/${questionsData}`);
     }
   }, [questionsData, questionsLoading, selectedExamId, router]);
 
-  // Get exam availability status for all exams
+  useEffect(() => {
+    if (viewSubmissionId && submissionCid && !submissionCidLoading) {
+      if (
+        submissionCid &&
+        typeof submissionCid === "string" &&
+        submissionCid.length > 0
+      ) {
+        router.push(`/results/${submissionCid}`);
+      } else {
+        console.log("No submission CID found for this exam");
+        setViewSubmissionId(null); // Reset to avoid repeated attempts
+      }
+    }
+  }, [submissionCid, submissionCidLoading, viewSubmissionId, router]);
+
+  // Update submission status for current exam in focus
+  useEffect(() => {
+    if (
+      currentExamIndex !== null &&
+      exams[currentExamIndex] &&
+      !submissionStatusLoading &&
+      isSubmitted !== undefined
+    ) {
+      const updatedExams = [...exams];
+      updatedExams[currentExamIndex] = {
+        ...updatedExams[currentExamIndex],
+        hasSubmitted: isSubmitted,
+      };
+      setExams(updatedExams);
+      setCurrentExamIndex(null); // Reset after updating
+    }
+  }, [isSubmitted, submissionStatusLoading, currentExamIndex, exams]);
+
+  // Process all exams data
   useEffect(() => {
     const loadExams = async () => {
       setLoading(true);
@@ -57,35 +110,36 @@ export default function StudentDashboard() {
         // Properly type and destructure the allExams data
         const [examIds, titles, startTimes, durations, activeStatus] = allExams;
 
-        const formattedExams = await Promise.all(
-          examIds.map(async (id: bigint, index: number) => {
-            // Check if exam is currently available (within time window)
-            const startTime = startTimes[index];
-            const duration = durations[index];
-            const currentTime = BigInt(Math.floor(Date.now() / 1000));
-            const endTime = startTime + duration;
-            const isAvailable =
-              activeStatus[index] &&
-              currentTime >= startTime &&
-              currentTime <= endTime;
+        // First create all the exam objects with basic info
+        const formattedExams = examIds.map((id: bigint, index: number) => {
+          const startTime = startTimes[index];
+          const duration = durations[index];
 
-            // Check if student has submitted answers
-            const submission = await fetchSubmission(id, address);
-            const hasSubmitted = submission !== null && submission !== "";
+          const endTime = startTime + duration;
+          const isAvailable =
+            activeStatus[index] &&
+            currentTime >= startTime &&
+            currentTime <= endTime;
 
-            return {
-              id,
-              title: titles[index],
-              startTime,
-              duration,
-              isActive: activeStatus[index],
-              isAvailable,
-              hasSubmitted,
-            };
-          })
-        );
+          return {
+            id,
+            title: titles[index],
+            startTime,
+            duration,
+            isActive: activeStatus[index],
+            isAvailable,
+            hasSubmitted: false, // Default value, will be updated
+          };
+        });
 
         setExams(formattedExams);
+
+        // Then check submission status for each exam one by one
+        for (let i = 0; i < formattedExams.length; i++) {
+          setCurrentExamIndex(i);
+          // Wait a bit to let the hook run
+          await new Promise((resolve) => setTimeout(resolve, 100));
+        }
       }
 
       setLoading(false);
@@ -96,26 +150,14 @@ export default function StudentDashboard() {
     }
   }, [allExams, examsLoading, address]);
 
-  // Fetch submission for a specific exam
-  const fetchSubmission = async (examId: bigint, studentAddress: string) => {
-    try {
-      const response = await fetch(
-        `/api/submissions?examId=${examId}&studentAddress=${studentAddress}`
-      );
-      if (response.ok) {
-        const data = await response.json();
-        return data.submission;
-      }
-      return null;
-    } catch (error) {
-      console.error("Error fetching submission:", error);
-      return null;
-    }
+  const handleTakeExam = (examId: bigint) => {
+    setSelectedExamId(examId);
   };
 
-  const handleTakeExam = (examId: bigint) => {
-    // Set the selected exam ID to trigger the useGetQuestions hook
-    setSelectedExamId(examId);
+  const handleViewResults = (examId: bigint) => {
+    setViewSubmissionId(examId);
+    console.log(submissionCid);
+    router.push(`/results/${submissionCid}`);
   };
 
   const formatTime = (timestamp: bigint) => {
@@ -124,6 +166,7 @@ export default function StudentDashboard() {
   };
 
   const getExamStatus = (exam: Exam) => {
+    if (typeof window === "undefined") return "Loading...";
     const currentTime = BigInt(Math.floor(Date.now() / 1000));
 
     if (!exam.isActive) {
@@ -169,12 +212,17 @@ export default function StudentDashboard() {
     loading ||
     verificationLoading ||
     examsLoading ||
-    (selectedExamId && questionsLoading)
+    (selectedExamId && questionsLoading) ||
+    (viewSubmissionId && submissionCidLoading)
   ) {
     return (
       <div className="min-h-screen bg-gray-100 p-6 flex items-center justify-center">
         <div className="text-xl font-semibold">
-          {selectedExamId ? "Loading exam..." : "Loading dashboard..."}
+          {selectedExamId
+            ? "Loading exam..."
+            : viewSubmissionId
+            ? "Loading results..."
+            : "Loading dashboard..."}
         </div>
       </div>
     );
@@ -265,7 +313,15 @@ export default function StudentDashboard() {
                           )}
                         </td>
                         <td className="px-4 py-3 border">
-                          {examStatus === "Active" && !exam.hasSubmitted ? (
+                          {exam.hasSubmitted ? (
+                            <button
+                              onClick={() => handleViewResults(exam.id)}
+                              className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-sm"
+                              disabled={!isVerified}
+                            >
+                              View Results
+                            </button>
+                          ) : examStatus === "Active" ? (
                             <button
                               onClick={() => handleTakeExam(exam.id)}
                               className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm"
@@ -273,10 +329,6 @@ export default function StudentDashboard() {
                             >
                               Take Exam
                             </button>
-                          ) : exam.hasSubmitted ? (
-                            <span className="text-sm text-gray-500">
-                              Completed
-                            </span>
                           ) : (
                             <button
                               disabled

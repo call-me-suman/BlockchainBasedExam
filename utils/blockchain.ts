@@ -48,28 +48,33 @@ export const useExamFunctions = () => {
         params: [title, startTime, duration, questionsHash],
       });
 
-      await sendTransaction(transaction);
-      console.log("TRAnsaction sent");
-    } catch (Error) {
-      console.log(Error);
+      return sendTransaction(transaction);
+    } catch (error) {
+      console.error("Error creating exam:", error);
+      throw error;
     }
   };
 
-  const registerStudent = (studentId: string) => {
+  const registerStudent = async (studentId: string) => {
     if (!studentId || studentId.trim() === "") {
       throw new Error("Student ID cannot be empty");
     }
 
-    const transaction = prepareContractCall({
-      contract,
-      method: "function registerStudent(string studentId)",
-      params: [studentId],
-    });
+    try {
+      const transaction = await prepareContractCall({
+        contract,
+        method: "function registerStudent(string studentId)",
+        params: [studentId],
+      });
 
-    return sendTransaction(transaction);
+      return sendTransaction(transaction);
+    } catch (error) {
+      console.error("Error registering student:", error);
+      throw error;
+    }
   };
 
-  const submitAnswers = (examId: bigint, answerHash: string) => {
+  const submitAnswers = async (examId: bigint, answerHash: string) => {
     if (examId < 0) {
       throw new Error("Exam ID must be a positive number");
     }
@@ -77,41 +82,56 @@ export const useExamFunctions = () => {
       throw new Error("Answer hash cannot be empty");
     }
 
-    const transaction = prepareContractCall({
-      contract,
-      method: "function submitAnswers(uint256 examId, string answerHash)",
-      params: [examId, answerHash],
-    });
+    try {
+      const transaction = await prepareContractCall({
+        contract,
+        method: "function submitAnswers(uint256 examId, string answerHash)",
+        params: [examId, answerHash],
+      });
 
-    return sendTransaction(transaction);
+      return sendTransaction(transaction);
+    } catch (error) {
+      console.error("Error submitting answers:", error);
+      throw error;
+    }
   };
 
-  const updateExamStatus = (examId: bigint, isActive: boolean) => {
+  const updateExamStatus = async (examId: bigint, isActive: boolean) => {
     if (examId < 0) {
       throw new Error("Exam ID must be a positive number");
     }
 
-    const transaction = prepareContractCall({
-      contract,
-      method: "function updateExamStatus(uint256 examId, bool isActive)",
-      params: [examId, isActive],
-    });
+    try {
+      const transaction = await prepareContractCall({
+        contract,
+        method: "function updateExamStatus(uint256 examId, bool isActive)",
+        params: [examId, isActive],
+      });
 
-    return sendTransaction(transaction);
+      return sendTransaction(transaction);
+    } catch (error) {
+      console.error("Error updating exam status:", error);
+      throw error;
+    }
   };
 
-  const verifyStudent = (studentAddress: string) => {
+  const verifyStudent = async (studentAddress: string) => {
     if (!studentAddress || !studentAddress.startsWith("0x")) {
       throw new Error("Invalid student address");
     }
 
-    const transaction = prepareContractCall({
-      contract,
-      method: "function verifyStudent(address student)",
-      params: [studentAddress],
-    });
+    try {
+      const transaction = await prepareContractCall({
+        contract,
+        method: "function verifyStudent(address student)",
+        params: [studentAddress],
+      });
 
-    return sendTransaction(transaction);
+      return sendTransaction(transaction);
+    } catch (error) {
+      console.error("Error verifying student:", error);
+      throw error;
+    }
   };
 
   return {
@@ -120,7 +140,6 @@ export const useExamFunctions = () => {
     submitAnswers,
     updateExamStatus,
     verifyStudent,
-
     transactionError,
   };
 };
@@ -186,6 +205,17 @@ export const useIsStudentVerified = (studentAddress: string) => {
     contract,
     method: "function isStudentVerified(address student) view returns (bool)",
     params: [studentAddress],
+  });
+};
+export const useIsStudentSubmitted = (
+  studentAddress: string,
+  examId: bigint
+) => {
+  return useReadContract({
+    contract,
+    method:
+      "function hasSubmitted(uint256 examId, address student) view returns (bool)",
+    params: [examId, studentAddress],
   });
 };
 

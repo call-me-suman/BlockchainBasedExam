@@ -29,29 +29,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-
-// const JWT = "YOUR_PINATA_JWT";
-
-// async function upload() {
-//   try {
-//     const formData = new FormData();
-
-//     const file = new File(["hello"], "Testing.txt", { type: "text/plain" });
-
-//     formData.append("file", file);
-
-//     formData.append("network", "public");
-
-//     const request = await fetch("https://uploads.pinata.cloud/v3/files", {
-//       method: "POST",
-//       headers: {
-//         Authorization: `Bearer ${JWT}`,
-//       },
-//       body: formData,
-//     });
-//     const response = await request.json();
-//     console.log(response);
-//   } catch (error) {
-//     console.log(error);
-//   }
-// }

@@ -2,6 +2,19 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useExamFunctions } from "../../../../utils/blockchain";
+import {
+  createThirdwebClient,
+  defineChain,
+  getContract,
+  prepareContractCall,
+} from "thirdweb";
+
+import {
+  useActiveAccount,
+  useSendTransaction,
+  useReadContract,
+} from "thirdweb/react";
 
 interface Question {
   question: string;
@@ -11,10 +24,42 @@ interface Question {
 
 interface ExamData {
   examTitle: string;
+  examId?: bigint; // Made examId optional
   startTime: number;
   duration: number;
   questions: Question[];
 }
+
+// Define the type for the data returned from the blockchain
+type BlockchainExamsData = [
+  bigint[], // examIds
+  string[], // titles
+  bigint[], // startTimes
+  bigint[], // durations
+  boolean[] // activeStatus
+];
+
+// Initialize Thirdweb client outside the component
+const client = createThirdwebClient({
+  clientId: "f74a735820f866854c58f30896bc36a5",
+});
+
+// Connect to your contract
+const contract = getContract({
+  client,
+  chain: defineChain(11155111), // Sepolia testnet
+  address: "0x34B9fD9b646Ade28fDd659Bf34Edd027c60445B1",
+});
+
+// Function to get all exams with proper type annotations
+export const useGetAllExams = () => {
+  return useReadContract({
+    contract,
+    method:
+      "function getAllExams() view returns (uint256[] examIds, string[] titles, uint256[] startTimes, uint256[] durations, bool[] activeStatus)",
+    params: [],
+  });
+};
 
 export default function ExamPage({
   params,
@@ -22,6 +67,12 @@ export default function ExamPage({
   params: { cid: string } | Promise<{ cid: string }>;
 }) {
   const router = useRouter();
+
+  // Use the hook inside the component
+  const { submitAnswers } = useExamFunctions();
+
+  // Use the hook to get all exams
+  const { data: allExamsData, isLoading: isLoadingExams } = useGetAllExams();
 
   const [cid, setCid] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -33,6 +84,15 @@ export default function ExamPage({
   const [examSubmitted, setExamSubmitted] = useState(false);
   const [score, setScore] = useState<number | null>(null);
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
+  const [submissionStatus, setSubmissionStatus] = useState<string | null>(null);
+  const [submissionError, setSubmissionError] = useState<string | null>(null);
+  const account = useActiveAccount();
+
+  // Add this flag to prevent infinite loop
+  const [examIdUpdated, setExamIdUpdated] = useState(false);
+
+  // Get the sendTransaction hook
+  const { mutate: sendTransaction, isPending } = useSendTransaction();
 
   // Handle async params
   useEffect(() => {
@@ -62,6 +122,9 @@ export default function ExamPage({
         }
 
         const data = await response.json();
+        console.log("Fetched exam data:", data);
+
+        // Set the exam data initially without examId
         setExamData(data);
 
         // Calculate time remaining
@@ -86,6 +149,52 @@ export default function ExamPage({
     fetchExam();
   }, [cid]);
 
+  // Find the exam ID by title once we have both exam data and all exams data
+  // Add a flag to prevent infinite loop
+  useEffect(() => {
+    if (!examData || !allExamsData || isLoadingExams || examIdUpdated) return;
+
+    try {
+      console.log("All exams data:", allExamsData);
+
+      // Cast the returned data to the array of arrays format
+      const examsArrays = allExamsData as unknown as BlockchainExamsData;
+
+      // Extract the arrays we need
+      const [examIds, titles, startTimes, durations, activeStatus] =
+        examsArrays;
+
+      const examTitle = examData.examTitle;
+      console.log("Looking for exam title:", examTitle);
+      console.log("Available titles:", titles);
+
+      // Find the index of the exam with matching title
+      const examIndex = titles.findIndex((title) => title === examTitle);
+
+      if (examIndex !== -1) {
+        const foundExamId = examIds[examIndex];
+        console.log(`Found exam ID for "${examTitle}": ${foundExamId}`);
+
+        // Update examData with the found examId
+        setExamData((prevData) => ({
+          ...prevData!,
+          examId: foundExamId,
+        }));
+
+        // Set flag to prevent this effect from running again
+        setExamIdUpdated(true);
+      } else {
+        console.error(
+          `Exam with title "${examTitle}" not found in the blockchain data`
+        );
+        setError("Could not find exam ID for this exam");
+      }
+    } catch (err) {
+      console.error("Error finding exam ID:", err);
+      setError("Failed to retrieve exam ID");
+    }
+  }, [examData, allExamsData, isLoadingExams, examIdUpdated]);
+
   // Timer for exam duration
   useEffect(() => {
     if (timeRemaining === null || timeRemaining <= 0 || examSubmitted) return;
@@ -94,7 +203,7 @@ export default function ExamPage({
       setTimeRemaining((prev) => {
         if (prev === null || prev <= 1) {
           clearInterval(timer);
-          submitExam();
+          handleSubmitExam();
           return 0;
         }
         return prev - 1;
@@ -111,21 +220,117 @@ export default function ExamPage({
     }));
   };
 
-  const submitExam = () => {
+  const handleSubmitExam = async () => {
     if (!examData) return;
 
-    let correctAnswers = 0;
+    // Check if we have a valid examId
+    if (!examData.examId) {
+      setSubmissionError(
+        "Exam ID not found. Please wait for exam data to load fully."
+      );
+      setSubmissionStatus("Submission failed");
+      return;
+    }
 
-    examData.questions.forEach((question, index) => {
-      if (selectedAnswers[index] === question.correctAnswer) {
-        correctAnswers++;
+    setSubmissionStatus("Processing submission...");
+
+    try {
+      // Calculate score and prepare results
+      let correctAnswers = 0;
+      const studentAnswers = examData.questions.map((question, index) => {
+        const selectedAnswer = selectedAnswers[index] || "";
+        const isCorrect = selectedAnswer === question.correctAnswer;
+
+        if (isCorrect) {
+          correctAnswers++;
+        }
+
+        return {
+          questionIndex: index,
+          question: question.question,
+          options: question.options,
+          correctAnswer: question.correctAnswer,
+          selectedAnswer: selectedAnswer,
+          isCorrect: isCorrect,
+        };
+      });
+
+      const finalScore = (correctAnswers / examData.questions.length) * 100;
+      setScore(finalScore);
+
+      // Create the exam result JSON
+      // Convert BigInt to string to make it serializable
+      const examResult = {
+        examId: examData.examId.toString(), // Convert BigInt to string
+        examTitle: examData.examTitle,
+        studentAnswers: studentAnswers,
+        score: finalScore,
+        totalQuestions: examData.questions.length,
+        correctAnswers: correctAnswers,
+        submittedAt: Math.floor(Date.now() / 1000),
+        graceMarks: {
+          enabled: false,
+          questions: [],
+          points: 0,
+        },
+      };
+
+      // Upload exam result to IPFS
+      setSubmissionStatus("Uploading results to IPFS...");
+      const ipfsResponse = await fetch("/api/exams", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(examResult),
+      });
+
+      if (!ipfsResponse.ok) {
+        throw new Error("Failed to upload results to IPFS");
       }
-    });
 
-    const finalScore = (correctAnswers / examData.questions.length) * 100;
-    setScore(finalScore);
-    setExamSubmitted(true);
+      const result = await ipfsResponse.json();
+
+      // Submit the CID to blockchain
+      setSubmissionStatus("Recording results on blockchain...");
+
+      console.log(
+        "Preparing to send transaction with examId:",
+        examData.examId,
+        "and CID:",
+        result.cid
+      );
+
+      const transaction = prepareContractCall({
+        contract,
+        method: "function submitAnswers(uint256 examId, string answerHash)",
+        params: [examData.examId, result.cid],
+      });
+
+      await sendTransaction(transaction);
+      setSubmissionStatus("Please confirm the transaction in MetaMask...");
+    } catch (err) {
+      console.error("Error submitting exam:", err);
+      setSubmissionError(
+        `Failed to submit exam: ${
+          err instanceof Error ? err.message : "Unknown error"
+        }`
+      );
+      setSubmissionStatus("Submission failed");
+    }
   };
+
+  // Add this effect to watch for transaction completion
+  useEffect(() => {
+    if (
+      !isPending &&
+      submissionStatus === "Please confirm the transaction in MetaMask..."
+    ) {
+      // Transaction completed or was rejected
+      setSubmissionStatus("Submission complete!");
+      setExamSubmitted(true);
+    }
+  }, [isPending]);
 
   const formatTime = (seconds: number): string => {
     const minutes = Math.floor(seconds / 60);
@@ -133,7 +338,8 @@ export default function ExamPage({
     return `${minutes}:${remainingSeconds.toString().padStart(2, "0")}`;
   };
 
-  if (loading) {
+  // Show loading state for both the exam data and exam IDs
+  if (loading || isLoadingExams) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <p className="text-xl">Loading exam...</p>
@@ -154,6 +360,19 @@ export default function ExamPage({
           >
             Return Home
           </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (submissionStatus && !examSubmitted) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-xl mb-4">{submissionStatus}</p>
+          {submissionError && (
+            <p className="text-red-600 mb-4">{submissionError}</p>
+          )}
         </div>
       </div>
     );
@@ -182,6 +401,9 @@ export default function ExamPage({
                 ).length
               }{" "}
               out of {examData.questions.length}
+            </p>
+            <p className="mt-2 text-sm text-green-600">
+              Your results have been securely stored on the blockchain.
             </p>
           </div>
 
@@ -251,16 +473,23 @@ export default function ExamPage({
 
   return (
     <div className="min-h-screen bg-gray-100 p-6">
-      <div className="max-w-2xl mx-auto bg-black rounded shadow-md p-6">
+      <div className="max-w-2xl mx-auto bg-white rounded shadow-md p-6">
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-bold">{examData.examTitle}</h1>
           {timeRemaining !== null && (
-            <div className="bg-black-100 px-4 py-2 rounded-lg">
+            <div className="bg-gray-100 px-4 py-2 rounded-lg">
               <p className="font-bold">
                 Time remaining: {formatTime(timeRemaining)}
               </p>
             </div>
           )}
+        </div>
+
+        <div className="mb-4 p-2 bg-blue-50 rounded">
+          <p className="text-sm">
+            Exam ID:{" "}
+            {examData.examId ? examData.examId.toString() : "Loading..."}
+          </p>
         </div>
 
         {examData.questions.map((question, qIndex) => (
@@ -295,8 +524,9 @@ export default function ExamPage({
         ))}
 
         <button
-          onClick={submitExam}
+          onClick={handleSubmitExam}
           className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
+          disabled={!examData.examId}
         >
           Submit Exam
         </button>
