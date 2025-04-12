@@ -9,6 +9,7 @@ import {
 import { useActiveAccount } from "thirdweb/react";
 import { prepareContractCall, sendTransaction } from "thirdweb";
 import { contract } from "../../../utils/contract";
+import Link from "next/link";
 
 // Define types for contract and account
 type ContractType = any; // Replace with your specific contract type when available
@@ -99,6 +100,12 @@ export default function AdminDashboard() {
           <h1 className="text-3xl font-bold text-white-800">
             Exam Admin Dashboard
           </h1>
+          <Link
+            href="/centreadmin"
+            className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 ml-[400px] px-6 rounded-lg shadow"
+          >
+            Centre Admin
+          </Link>
           <button
             onClick={navigateToUpload}
             className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-6 rounded-lg shadow"
@@ -211,11 +218,13 @@ export default function AdminDashboard() {
                 />
               ))
             ) : (
-              <div className="col-span-full bg-gray-50 p-8 rounded-lg text-center">
-                <p className="text-lg text-gray-600">No exams found.</p>
-                <p className="text-gray-500 mt-2">
-                  Click &quot;Upload New Exam&quot; to create your first exam.
-                </p>
+              <div>
+                <div className="col-span-full bg-gray-50 p-8 rounded-lg text-center">
+                  <p className="text-lg text-gray-600">No exams found.</p>
+                  <p className="text-gray-500 mt-2">
+                    Click &quot;Upload New Exam&quot; to create your first exam.
+                  </p>
+                </div>
               </div>
             )}
           </div>

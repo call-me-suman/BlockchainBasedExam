@@ -1077,7 +1077,7 @@ export default function ExamPage({
         <div className="flex items-center">
           <div className="w-10 h-10 bg-white rounded-full mr-3 flex items-center justify-center overflow-hidden">
             <Image
-              src="/logo.png"
+              src="/logo.jpg"
               alt="Blockchain Exam Logo"
               width={40}
               height={40}

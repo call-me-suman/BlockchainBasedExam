@@ -1,23 +1,18 @@
-// blockchain.ts
 import { prepareContractCall } from "thirdweb";
-import { useSendTransaction } from "thirdweb/react";
+import { useSendTransaction, useReadContract } from "thirdweb/react";
 import { createThirdwebClient, getContract } from "thirdweb";
 import { defineChain } from "thirdweb/chains";
-import { useReadContract } from "thirdweb/react";
 
 // Create the client with your clientId
 const client = createThirdwebClient({
   clientId: "f74a735820f866854c58f30896bc36a5",
-  // clientId: "0e1f854c4c9b1a453af2935960947936",
 });
 
 // Connect to your contract
 const contract = getContract({
   client,
   chain: defineChain(11155111), // Sepolia testnet
-  // address: "0x17e8FfF2395938B1B45e7e01e5a079E1996662ac",
-
-  address: "0x34b9fd9b646ade28fdd659bf34edd027c60445b1",
+  address: "0x34B9fD9b646Ade28fDd659Bf34Edd027c60445B1", // Update if redeployed
 });
 
 // Write Functions
@@ -29,12 +24,13 @@ export const useExamFunctions = () => {
     title: string,
     startTime: bigint,
     duration: bigint,
-    questionsHash: string
+    questionsHash: string,
+    subject: string
   ) => {
     if (!title || title.trim() === "") {
       throw new Error("Title cannot be empty");
     }
-    if (!startTime || startTime <= Math.floor(Date.now() / 1000)) {
+    if (!startTime || startTime <= BigInt(Math.floor(Date.now() / 1000))) {
       throw new Error("Start time must be in the future");
     }
     if (!duration || duration <= 0) {
@@ -43,12 +39,15 @@ export const useExamFunctions = () => {
     if (!questionsHash || questionsHash.trim() === "") {
       throw new Error("Questions hash cannot be empty");
     }
+    if (!subject || subject.trim() === "") {
+      throw new Error("Subject cannot be empty");
+    }
     try {
       const transaction = await prepareContractCall({
         contract,
         method:
-          "function createExamWithQuestions(string title, uint256 startTime, uint256 duration, string questionsHash)",
-        params: [title, startTime, duration, questionsHash],
+          "function createExamWithQuestions(string title, uint256 startTime, uint256 duration, string questionsHash, string subject)",
+        params: [title, startTime, duration, questionsHash, subject],
       });
 
       return sendTransaction(transaction);
@@ -160,7 +159,7 @@ export const useGetAllExams = () => {
   return useReadContract({
     contract,
     method:
-      "function getAllExams() view returns (uint256[] examIds, string[] titles, uint256[] startTimes, uint256[] durations, bool[] activeStatus)",
+      "function getAllExams() view returns (uint256[] examIds, string[] titles, uint256[] startTimes, uint256[] durations, bool[] activeStatus, string[] subjects)",
     params: [],
   });
 };
@@ -210,6 +209,7 @@ export const useIsStudentVerified = (studentAddress: string) => {
     params: [studentAddress],
   });
 };
+
 export const useIsStudentSubmitted = (
   studentAddress: string,
   examId: bigint
@@ -243,7 +243,7 @@ export const useGetExamById = (examId: bigint) => {
   return useReadContract({
     contract,
     method:
-      "function getExamById(uint256 examId) view returns (string title, uint256 startTime, uint256 duration, bool isActive, string questionsHash)",
+      "function getExamById(uint256 examId) view returns (string title, uint256 startTime, uint256 duration, bool isActive, string questionsHash, string subject)",
     params: [examId],
   });
 };

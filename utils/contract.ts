@@ -10,5 +10,5 @@ export const contract = getContract({
   client,
   chain: defineChain(11155111), // Sepolia testnet
   // address: "0x17e8FfF2395938B1B45e7e01e5a079E1996662ac"
-  address: "0x34b9fd9b646ade28fdd659bf34edd027c60445b1",
+  address: "0x34B9fD9b646Ade28fDd659Bf34Edd027c60445B1",
 });
