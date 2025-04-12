@@ -2,13 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useExamFunctions } from "../../../../utils/blockchain";
-import {
-  createThirdwebClient,
-  defineChain,
-  getContract,
-  prepareContractCall,
-} from "thirdweb";
+import { contract } from "../../../../utils/contract";
+import { prepareContractCall } from "thirdweb";
 
 import {
   useActiveAccount,
@@ -40,16 +35,6 @@ type BlockchainExamsData = [
 ];
 
 // Initialize Thirdweb client outside the component
-const client = createThirdwebClient({
-  clientId: "f74a735820f866854c58f30896bc36a5",
-});
-
-// Connect to your contract
-const contract = getContract({
-  client,
-  chain: defineChain(11155111), // Sepolia testnet
-  address: "0x34B9fD9b646Ade28fDd659Bf34Edd027c60445B1",
-});
 
 // Function to get all exams with proper type annotations
 export const useGetAllExams = () => {
@@ -69,7 +54,6 @@ export default function ExamPage({
   const router = useRouter();
 
   // Use the hook inside the component
-  const { submitAnswers } = useExamFunctions();
 
   // Use the hook to get all exams
   const { data: allExamsData, isLoading: isLoadingExams } = useGetAllExams();
@@ -161,9 +145,7 @@ export default function ExamPage({
       const examsArrays = allExamsData as unknown as BlockchainExamsData;
 
       // Extract the arrays we need
-      const [examIds, titles, startTimes, durations, activeStatus] =
-        examsArrays;
-
+      const [examIds, titles] = examsArrays;
       const examTitle = examData.examTitle;
       console.log("Looking for exam title:", examTitle);
       console.log("Available titles:", titles);

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Spinner from "@/components/Spinner";
 import {
   useIsStudentVerified,
   useGetAllExams,
@@ -61,7 +62,6 @@ export default function StudentDashboard() {
   }, []);
 
   // Navigate to exam page when questions are loaded
-
   useEffect(() => {
     if (selectedExamId && questionsData && !questionsLoading) {
       router.push(`/exams/${questionsData}`);
@@ -183,13 +183,13 @@ export default function StudentDashboard() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case "Active":
-        return "text-green-500";
+        return "text-emerald-400";
       case "Inactive":
-        return "text-red-500";
+        return "text-red-400";
       case "Not Started":
-        return "text-yellow-500";
+        return "text-yellow-400";
       case "Ended":
-        return "text-gray-500";
+        return "text-gray-400";
       default:
         return "";
     }
@@ -197,10 +197,12 @@ export default function StudentDashboard() {
 
   if (!address) {
     return (
-      <div className="min-h-screen bg-gray-100 p-6 flex items-center justify-center">
-        <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-md text-center">
-          <h2 className="text-2xl font-bold mb-4">Wallet Not Connected</h2>
-          <p className="mb-6">
+      <div className="min-h-screen bg-black p-6 flex items-center justify-center">
+        <div className="bg-black/40 backdrop-blur-lg p-8 rounded-xl shadow-2xl border border-gray-800 w-full max-w-md text-center">
+          <h2 className="text-2xl text-white font-bold mb-4">
+            Wallet Not Connected
+          </h2>
+          <p className="mb-6 text-gray-300">
             Please connect your wallet to access the student dashboard.
           </p>
         </div>
@@ -216,38 +218,57 @@ export default function StudentDashboard() {
     (viewSubmissionId && submissionCidLoading)
   ) {
     return (
-      <div className="min-h-screen bg-gray-100 p-6 flex items-center justify-center">
-        <div className="text-xl font-semibold">
-          {selectedExamId
-            ? "Loading exam..."
-            : viewSubmissionId
-            ? "Loading results..."
-            : "Loading dashboard..."}
+      <div className="min-h-screen bg-black p-6 flex items-center justify-center">
+        <div className="text-xl font-semibold text-white">
+          {selectedExamId ? (
+            <>
+              <p className="mb-4">Loading exam...</p>
+              <Spinner />
+            </>
+          ) : viewSubmissionId ? (
+            <>
+              <p className="mb-4">Loading results...</p>
+              <Spinner />
+            </>
+          ) : (
+            <>
+              <p className="mb-4">Loading dashboard...</p>
+              <Spinner />
+            </>
+          )}
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 p-6">
-      <div className="max-w-4xl mx-auto">
-        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-          <h1 className="text-2xl font-bold mb-4">Student Dashboard</h1>
+    <div className="min-h-screen bg-black p-6">
+      <div className="max-w-5xl mx-auto">
+        <div className="bg-black/50 backdrop-blur-lg rounded-xl shadow-2xl p-8 mb-6 border border-blue-900/40">
+          <h1 className="text-3xl font-bold mb-6 text-white bg-clip-text bg-gradient-to-r from-blue-400 to-blue-600">
+            Student Dashboard
+          </h1>
 
-          <div className="mb-6 p-4 rounded-lg bg-gray-50">
-            <div className="flex items-center mb-2">
-              <span className="font-semibold mr-2">Wallet Address:</span>
-              <span className="text-gray-700">{address}</span>
+          <div className="mb-8 p-4 rounded-xl bg-black/30 backdrop-blur-md border border-gray-800">
+            <div className="flex flex-col md:flex-row md:items-center gap-4 mb-2">
+              <span className="font-semibold text-gray-300">
+                Wallet Address:
+              </span>
+              <span className="text-blue-400 font-mono text-sm md:text-base break-all">
+                {address}
+              </span>
             </div>
 
-            <div className="flex items-center">
-              <span className="font-semibold mr-2">Verification Status:</span>
+            <div className="flex flex-col md:flex-row md:items-center gap-4">
+              <span className="font-semibold text-gray-300">
+                Verification Status:
+              </span>
               {isVerified ? (
-                <span className="bg-green-100 text-green-800 px-2 py-1 rounded">
+                <span className="bg-emerald-500/20 text-emerald-400 px-3 py-1.5 rounded-lg text-sm inline-block">
                   Verified
                 </span>
               ) : (
-                <span className="bg-red-100 text-red-800 px-2 py-1 rounded">
+                <span className="bg-red-500/20 text-red-400 px-3 py-1.5 rounded-lg text-sm inline-block">
                   Not Verified
                 </span>
               )}
@@ -255,68 +276,87 @@ export default function StudentDashboard() {
           </div>
 
           {!isVerified && (
-            <div className="mb-6 p-4 rounded-lg bg-yellow-50 border border-yellow-200">
-              <p className="text-yellow-800">
+            <div className="mb-8 p-5 rounded-xl bg-yellow-500/10 border border-yellow-500/30">
+              <p className="text-yellow-400">
                 You are not verified yet. Please contact your instructor to get
                 verified.
               </p>
             </div>
           )}
 
-          <h2 className="text-xl font-bold mb-4">Available Exams</h2>
+          <h2 className="text-2xl font-bold mb-6 text-white">
+            Available Exams
+          </h2>
 
           {exams.length === 0 ? (
-            <p className="text-gray-500 italic">
+            <p className="text-gray-400 italic">
               No exams available at the moment.
             </p>
           ) : (
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto rounded-xl border border-gray-800">
               <table className="w-full border-collapse">
                 <thead>
-                  <tr className="bg-gray-50">
-                    <th className="px-4 py-2 text-left border">Exam Title</th>
-                    <th className="px-4 py-2 text-left border">Start Time</th>
-                    <th className="px-4 py-2 text-left border">Duration</th>
-                    <th className="px-4 py-2 text-left border">Status</th>
-                    <th className="px-4 py-2 text-left border">Submission</th>
-                    <th className="px-4 py-2 text-left border">Action</th>
+                  <tr className="bg-blue-900/30 text-gray-200">
+                    <th className="px-4 py-3 text-left border-b border-gray-800">
+                      Exam Title
+                    </th>
+                    <th className="px-4 py-3 text-left border-b border-gray-800">
+                      Start Time
+                    </th>
+                    <th className="px-4 py-3 text-left border-b border-gray-800">
+                      Duration
+                    </th>
+                    <th className="px-4 py-3 text-left border-b border-gray-800">
+                      Status
+                    </th>
+                    <th className="px-4 py-3 text-left border-b border-gray-800">
+                      Submission
+                    </th>
+                    <th className="px-4 py-3 text-left border-b border-gray-800">
+                      Action
+                    </th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y divide-gray-800">
                   {exams.map((exam) => {
                     const examStatus = getExamStatus(exam);
                     const statusColor = getStatusColor(examStatus);
 
                     return (
-                      <tr key={String(exam.id)} className="hover:bg-gray-50">
-                        <td className="px-4 py-3 border">{exam.title}</td>
-                        <td className="px-4 py-3 border">
+                      <tr
+                        key={String(exam.id)}
+                        className="text-gray-300 hover:bg-blue-900/10 transition duration-150"
+                      >
+                        <td className="px-4 py-4 border-r border-gray-800 font-medium">
+                          {exam.title}
+                        </td>
+                        <td className="px-4 py-4 border-r border-gray-800">
                           {formatTime(exam.startTime)}
                         </td>
-                        <td className="px-4 py-3 border">{`${
+                        <td className="px-4 py-4 border-r border-gray-800">{`${
                           Number(exam.duration) / 60
                         } minutes`}</td>
                         <td
-                          className={`px-4 py-3 border font-medium ${statusColor}`}
+                          className={`px-4 py-4 border-r border-gray-800 font-medium ${statusColor}`}
                         >
                           {examStatus}
                         </td>
-                        <td className="px-4 py-3 border">
+                        <td className="px-4 py-4 border-r border-gray-800">
                           {exam.hasSubmitted ? (
-                            <span className="bg-green-100 text-green-800 px-2 py-1 rounded text-sm">
+                            <span className="bg-emerald-500/20 text-emerald-400 px-3 py-1.5 rounded-lg text-sm inline-block">
                               Submitted
                             </span>
                           ) : (
-                            <span className="bg-gray-100 text-gray-800 px-2 py-1 rounded text-sm">
+                            <span className="bg-gray-700/50 text-gray-400 px-3 py-1.5 rounded-lg text-sm inline-block">
                               Not Submitted
                             </span>
                           )}
                         </td>
-                        <td className="px-4 py-3 border">
+                        <td className="px-4 py-4">
                           {exam.hasSubmitted ? (
                             <button
                               onClick={() => handleViewResults(exam.id)}
-                              className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-sm"
+                              className="bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition duration-150 shadow-md shadow-emerald-500/20"
                               disabled={!isVerified}
                             >
                               View Results
@@ -324,7 +364,7 @@ export default function StudentDashboard() {
                           ) : examStatus === "Active" ? (
                             <button
                               onClick={() => handleTakeExam(exam.id)}
-                              className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm"
+                              className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition duration-150 shadow-md shadow-blue-500/20"
                               disabled={!isVerified}
                             >
                               Take Exam
@@ -332,7 +372,7 @@ export default function StudentDashboard() {
                           ) : (
                             <button
                               disabled
-                              className="bg-gray-300 text-gray-500 px-3 py-1 rounded text-sm cursor-not-allowed"
+                              className="bg-gray-700/50 text-gray-500 px-4 py-2 rounded-lg text-sm cursor-not-allowed"
                             >
                               {examStatus === "Ended"
                                 ? "Expired"

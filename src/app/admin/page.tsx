@@ -6,9 +6,20 @@ import {
   useIsExamAvailable,
   useExamFunctions,
 } from "../../../utils/blockchain";
+import { useActiveAccount } from "thirdweb/react";
+import { prepareContractCall, sendTransaction } from "thirdweb";
+import { contract } from "../../../utils/contract";
+
+// Define types for contract and account
+type ContractType = any; // Replace with your specific contract type when available
+type AccountType = any; // Replace with your specific account type when available
+
+// Create a utility function for logging admin activity
 
 export default function AdminDashboard() {
   const router = useRouter();
+  const acc = useActiveAccount();
+  const account = acc?.address;
   const {
     data: examsData,
     isLoading: examsLoading,
@@ -46,10 +57,19 @@ export default function AdminDashboard() {
     }
   }, [examsData]);
 
-  const handleStatusChange = async (examId: bigint, currentStatus: boolean) => {
+  const handleStatusChange = async (
+    examId: bigint,
+    currentStatus: boolean,
+    examTitle: string
+  ) => {
     setStatusUpdating((prev) => ({ ...prev, [examId.toString()]: true }));
     try {
+      // Update exam status
       await updateExamStatus(examId, !currentStatus);
+
+      // Log the activity
+      const newStatus = !currentStatus ? "activated" : "deactivated";
+
       // Wait a moment before refetching to allow the blockchain to update
       setTimeout(() => {
         refetch();
@@ -61,30 +81,27 @@ export default function AdminDashboard() {
     }
   };
 
-  const navigateToUpload = () => {
+  const navigateToUpload = async () => {
+    try {
+      // Log navigation to upload page
+    } catch (error) {
+      console.error("Failed to log navigation:", error);
+    }
     router.push("/upload");
   };
 
-  const formatDate = (timestamp: bigint) => {
-    return new Date(Number(timestamp) * 1000).toLocaleString();
-  };
-
-  const formatDuration = (seconds: bigint) => {
-    const hours = Math.floor(Number(seconds) / 3600);
-    const minutes = Math.floor((Number(seconds) % 3600) / 60);
-    return `${hours}h ${minutes}m`;
-  };
+  // Log dashboard access on component mount
 
   return (
-    <div className="min-h-screen bg-gray-100 p-6">
+    <div className="min-h-screen bg-gray-900 p-6">
       <div className="max-w-7xl mx-auto">
         <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-800">
+          <h1 className="text-3xl font-bold text-white-800">
             Exam Admin Dashboard
           </h1>
           <button
             onClick={navigateToUpload}
-            className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg shadow"
+            className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-6 rounded-lg shadow"
           >
             Upload New Exam
           </button>
@@ -92,11 +109,13 @@ export default function AdminDashboard() {
 
         {/* Filter controls */}
         <div className="mb-6">
-          <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-            <h2 className="text-lg font-medium text-gray-700 mb-3">Filters</h2>
-            <div className="flex flex-wrap gap-2">
+          <div className="bg-black p-4 rounded-lg shadow-sm border border-gray-200">
+            <h2 className="text-lg font-medium text-white-700 mb-3">Filters</h2>
+            <div className="flex flex-wrap gap-4">
               <button
-                onClick={() => setStatusFilter("all")}
+                onClick={() => {
+                  setStatusFilter("all");
+                }}
                 className={`px-3 py-1.5 rounded-md text-sm font-medium ${
                   statusFilter === "all"
                     ? "bg-blue-100 text-blue-800 border-2 border-blue-300"
@@ -106,7 +125,9 @@ export default function AdminDashboard() {
                 All Exams
               </button>
               <button
-                onClick={() => setStatusFilter("in-progress")}
+                onClick={() => {
+                  setStatusFilter("in-progress");
+                }}
                 className={`px-3 py-1.5 rounded-md text-sm font-medium ${
                   statusFilter === "in-progress"
                     ? "bg-green-100 text-green-800 border-2 border-green-300"
@@ -116,7 +137,9 @@ export default function AdminDashboard() {
                 In Progress
               </button>
               <button
-                onClick={() => setStatusFilter("scheduled")}
+                onClick={() => {
+                  setStatusFilter("scheduled");
+                }}
                 className={`px-3 py-1.5 rounded-md text-sm font-medium ${
                   statusFilter === "scheduled"
                     ? "bg-blue-100 text-blue-800 border-2 border-blue-300"
@@ -126,7 +149,9 @@ export default function AdminDashboard() {
                 Scheduled
               </button>
               <button
-                onClick={() => setStatusFilter("expired")}
+                onClick={() => {
+                  setStatusFilter("expired");
+                }}
                 className={`px-3 py-1.5 rounded-md text-sm font-medium ${
                   statusFilter === "expired"
                     ? "bg-yellow-100 text-yellow-800 border-2 border-yellow-300"
@@ -136,7 +161,9 @@ export default function AdminDashboard() {
                 Expired
               </button>
               <button
-                onClick={() => setStatusFilter("not-available")}
+                onClick={() => {
+                  setStatusFilter("not-available");
+                }}
                 className={`px-3 py-1.5 rounded-md text-sm font-medium ${
                   statusFilter === "not-available"
                     ? "bg-red-100 text-red-800 border-2 border-red-300"
@@ -146,7 +173,9 @@ export default function AdminDashboard() {
                 Not Available
               </button>
               <button
-                onClick={() => setStatusFilter("completed")}
+                onClick={() => {
+                  setStatusFilter("completed");
+                }}
                 className={`px-3 py-1.5 rounded-md text-sm font-medium ${
                   statusFilter === "completed"
                     ? "bg-purple-100 text-purple-800 border-2 border-purple-300"
@@ -176,15 +205,16 @@ export default function AdminDashboard() {
                   exam={exam}
                   onStatusChange={handleStatusChange}
                   isUpdating={statusUpdating[exam.id.toString()]}
-                  router={router}
                   statusFilter={statusFilter}
+                  contract={contract}
+                  account={account}
                 />
               ))
             ) : (
               <div className="col-span-full bg-gray-50 p-8 rounded-lg text-center">
                 <p className="text-lg text-gray-600">No exams found.</p>
                 <p className="text-gray-500 mt-2">
-                  Click "Upload New Exam" to create your first exam.
+                  Click &quot;Upload New Exam&quot; to create your first exam.
                 </p>
               </div>
             )}
@@ -195,13 +225,13 @@ export default function AdminDashboard() {
   );
 }
 
-// Separate component for each exam card to efficiently use the useIsExamAvailable hook
 function ExamCard({
   exam,
   onStatusChange,
   isUpdating,
-  router,
   statusFilter,
+  contract,
+  account,
 }: {
   exam: {
     id: bigint;
@@ -210,10 +240,15 @@ function ExamCard({
     duration: bigint;
     isActive: boolean | undefined;
   };
-  onStatusChange: (examId: bigint, currentStatus: boolean) => Promise<void>;
+  onStatusChange: (
+    examId: bigint,
+    currentStatus: boolean,
+    examTitle: string
+  ) => Promise<void>;
   isUpdating: boolean;
-  router: ReturnType<typeof useRouter>;
   statusFilter: string;
+  contract: ContractType;
+  account: AccountType;
 }) {
   // Get the actual availability status from the blockchain
   const { data: isAvailable, isLoading: availabilityLoading } =
@@ -229,8 +264,9 @@ function ExamCard({
     if (isAvailable === undefined)
       return {
         label: "Unknown",
-        colorClasses: "bg-gray-100 text-gray-600",
+        colorClasses: "bg-gray-800/30 text-gray-300",
         statusKey: "unknown",
+        glowColor: "rgba(75, 85, 99, 0.3)",
       };
 
     if (isAvailable) {
@@ -238,20 +274,23 @@ function ExamCard({
       if (currentTime < examStartTime) {
         return {
           label: "Scheduled",
-          colorClasses: "bg-blue-100 text-blue-800",
+          colorClasses: "bg-blue-900/30 text-blue-300",
           statusKey: "scheduled",
+          glowColor: "rgba(59, 130, 246, 0.3)",
         };
       } else if (currentTime >= examStartTime && currentTime <= examEndTime) {
         return {
           label: "In Progress",
-          colorClasses: "bg-green-100 text-green-800",
+          colorClasses: "bg-green-900/30 text-green-300",
           statusKey: "in-progress",
+          glowColor: "rgba(16, 185, 129, 0.3)",
         };
       } else {
         return {
           label: "Completed",
-          colorClasses: "bg-purple-100 text-purple-800",
+          colorClasses: "bg-purple-900/30 text-purple-300",
           statusKey: "completed",
+          glowColor: "rgba(124, 58, 237, 0.3)",
         };
       }
     } else {
@@ -259,14 +298,16 @@ function ExamCard({
       if (currentTime > examEndTime) {
         return {
           label: "Expired",
-          colorClasses: "bg-yellow-100 text-yellow-800",
+          colorClasses: "bg-yellow-900/30 text-yellow-300",
           statusKey: "expired",
+          glowColor: "rgba(245, 158, 11, 0.3)",
         };
       } else {
         return {
           label: "Not Available",
-          colorClasses: "bg-red-100 text-red-800",
+          colorClasses: "bg-red-900/30 text-red-300",
           statusKey: "not-available",
+          glowColor: "rgba(239, 68, 68, 0.3)",
         };
       }
     }
@@ -329,20 +370,42 @@ function ExamCard({
     }
   };
 
+  // Log when exam details are viewed
+
+  // Get button style classes based on availability
+  const getButtonClasses = () => {
+    const baseClasses =
+      "px-4 py-2 rounded-md text-sm font-medium backdrop-blur-sm transition-all duration-300 border disabled:opacity-50 disabled:cursor-not-allowed";
+
+    if (isAvailable) {
+      return `${baseClasses} text-red-300  hover:shadow-lg hover:shadow-red-900/20`;
+    } else {
+      return `${baseClasses}  text-green-300  hover:shadow-lg hover:shadow-green-900/20`;
+    }
+  };
+
   return (
-    <div className="bg-white rounded-lg shadow-md overflow-hidden border border-gray-200">
+    <div
+      className="rounded-xl overflow-hidden transition-all duration-300 hover:scale-[1.02] hover:shadow-lg"
+      style={{
+        background: `linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.05))`,
+        backdropFilter: "blur(10px)",
+        WebkitBackdropFilter: "blur(10px)",
+        border: "1px solid rgba(255, 255, 255, 0.1)",
+      }}
+    >
       <div className="p-5">
         <div className="flex justify-between items-start mb-4">
-          <h2 className="text-xl font-semibold text-gray-800 truncate">
+          <h2 className="text-xl font-semibold text-white truncate">
             {exam.title}
           </h2>
           {availabilityLoading ? (
-            <span className="px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-600">
+            <span className="px-2 py-1 rounded text-xs font-medium bg-gray-800/30 text-gray-300">
               Loading...
             </span>
           ) : (
             <span
-              className={`px-2 py-1 rounded text-xs font-medium ${status.colorClasses}`}
+              className={`px-2 py-1 rounded text-xs font-medium backdrop-blur-sm ${status.colorClasses} border border-white/10`}
             >
               {status.label}
             </span>
@@ -351,42 +414,39 @@ function ExamCard({
 
         <div className="space-y-2 mb-4">
           <div className="flex justify-between">
-            <span className="text-sm text-gray-500">ID:</span>
-            <span className="text-sm font-medium text-gray-700">
+            <span className="text-sm text-gray-400">ID:</span>
+            <span className="text-sm font-medium text-gray-200">
               {exam.id.toString()}
             </span>
           </div>
           <div className="flex justify-between">
-            <span className="text-sm text-gray-500">Start Time:</span>
-            <span className="text-sm font-medium text-gray-700">
+            <span className="text-sm text-gray-400">Start Time:</span>
+            <span className="text-sm font-medium text-gray-200">
               {formatDate(exam.startTime)}
             </span>
           </div>
           <div className="flex justify-between">
-            <span className="text-sm text-gray-500">Duration:</span>
-            <span className="text-sm font-medium text-gray-700">
+            <span className="text-sm text-gray-400">Duration:</span>
+            <span className="text-sm font-medium text-gray-200">
               {formatDuration(exam.duration)}
             </span>
           </div>
           <div className="flex justify-between">
-            <span className="text-sm text-gray-500">End Time:</span>
-            <span className="text-sm font-medium text-gray-700">
+            <span className="text-sm text-gray-400">End Time:</span>
+            <span className="text-sm font-medium text-gray-200">
               {formatDate(BigInt(examStartTime + Number(exam.duration)))}
             </span>
           </div>
         </div>
 
-        <div className="flex justify-between items-center pt-4 border-t border-gray-200">
+        <div className="flex justify-between items-center pt-4 border-t border-white/10">
           <button
             onClick={() =>
-              isAvailable !== undefined && onStatusChange(exam.id, isAvailable)
+              isAvailable !== undefined &&
+              onStatusChange(exam.id, isAvailable, exam.title)
             }
             disabled={isButtonDisabled()}
-            className={`px-4 py-2 rounded-md text-sm font-medium ${
-              isAvailable
-                ? "bg-red-600 hover:bg-red-700 text-white"
-                : "bg-green-600 hover:bg-green-700 text-white"
-            } disabled:opacity-50 disabled:cursor-not-allowed`}
+            className={getButtonClasses()}
             title={
               isButtonDisabled() && !isUpdating && !availabilityLoading
                 ? "This exam can't be modified because it has expired or is outside its scheduled time"

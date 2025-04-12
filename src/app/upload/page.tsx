@@ -3,12 +3,9 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Spinner from "../../components/Spinner";
-import {
-  createThirdwebClient,
-  defineChain,
-  getContract,
-  prepareContractCall,
-} from "thirdweb";
+import { contract } from "../../../utils/contract";
+
+import { prepareContractCall } from "thirdweb";
 import { useActiveAccount, useSendTransaction } from "thirdweb/react";
 import axios from "axios";
 
@@ -34,7 +31,6 @@ interface ExamData {
 }
 
 export default function CreateExam() {
-  const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [isExtracting, setIsExtracting] = useState(false);
   const [cid, setCid] = useState("");
@@ -42,18 +38,6 @@ export default function CreateExam() {
   const [publicUrl, setPublicUrl] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [extractError, setExtractError] = useState("");
-  const account = useActiveAccount();
-
-  const client = createThirdwebClient({
-    clientId: "f74a735820f866854c58f30896bc36a5",
-  });
-
-  // Connect to your contract
-  const contract = getContract({
-    client,
-    chain: defineChain(11155111), // Sepolia testnet
-    address: "0x34B9fD9b646Ade28fDd659Bf34Edd027c60445B1",
-  });
 
   const { mutate: sendTransaction, isPending } = useSendTransaction();
   const [examData, setExamData] = useState<ExamData>({
@@ -260,6 +244,7 @@ export default function CreateExam() {
       // Now set the CID to display the success message
       setCid(result.cid);
       setPublicUrl(result.url);
+      console.log(publicUrl);
     } catch (error) {
       console.error("Error uploading to IPFS:", error);
       alert("Failed to upload exam to IPFS");
@@ -273,12 +258,12 @@ export default function CreateExam() {
   };
 
   return (
-    <div className="min-h-screen bg-black-100 p-6">
-      <div className="max-w-4xl mx-auto bg-black rounded shadow-md p-6">
-        <h1 className="text-2xl font-bold mb-6">Create Exam</h1>
+    <div className="min-h-screen bg-gray-900 p-6">
+      <div className="max-w-4xl mx-auto bg-black rounded shadow-md p-6 border">
+        <h1 className="text-4xl font-bold mb-6 text-white-400">Create Exam</h1>
 
         <div className="mb-6">
-          <label className="block text-gray-700 font-bold mb-2">
+          <label className="block text-white-700 font-bold mb-2">
             Exam Title
           </label>
           <input
@@ -291,12 +276,12 @@ export default function CreateExam() {
         </div>
 
         {/* Document extraction section */}
-        <div className="mb-6 p-4 bg-gray-50 rounded border">
+        <div className="mb-6 p-4 bg-black rounded ">
           <h2 className="text-xl font-bold mb-3">
             Import Questions from Document
           </h2>
           <div className="mb-4">
-            <label className="block text-gray-700 mb-2">
+            <label className="block text-white-700 mb-2">
               Upload document (image or PDF)
             </label>
             <input
@@ -325,7 +310,7 @@ export default function CreateExam() {
 
         <div className="grid grid-cols-2 gap-4 mb-6">
           <div>
-            <label className="block text-gray-700 font-bold mb-2">
+            <label className="block text-white-700 font-bold mb-2">
               Start Time
             </label>
             <input
@@ -341,14 +326,14 @@ export default function CreateExam() {
               }}
               className="w-full border rounded px-3 py-2"
             />
-            <p className="text-sm text-gray-500 mt-1">
+            <p className="text-sm text-white-500 mt-1">
               Unix Timestamp: {examData.startTime} (
               {formatDate(examData.startTime)})
             </p>
           </div>
 
           <div>
-            <label className="block text-gray-700 font-bold mb-2">
+            <label className="block text-white-700 font-bold mb-2">
               Duration (seconds)
             </label>
             <input
@@ -359,7 +344,7 @@ export default function CreateExam() {
               }
               className="w-full border rounded px-3 py-2"
             />
-            <p className="text-sm text-gray-500 mt-1">
+            <p className="text-sm text-white-500 mt-1">
               {Math.floor(examData.duration / 60)} minutes
             </p>
           </div>
@@ -370,7 +355,7 @@ export default function CreateExam() {
             <h2 className="text-xl font-bold">Questions</h2>
             <button
               onClick={addQuestion}
-              className="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600"
+              className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
               type="button"
             >
               Add Question
@@ -393,7 +378,7 @@ export default function CreateExam() {
               </div>
 
               <div className="mb-4">
-                <label className="block text-gray-700 mb-1">
+                <label className="block text-white-700 mb-1">
                   Question Text
                 </label>
                 <textarea
@@ -407,7 +392,7 @@ export default function CreateExam() {
               </div>
 
               <div className="mb-4">
-                <label className="block text-gray-700 mb-1">Options</label>
+                <label className="block text-white-700 mb-1">Options</label>
                 {["A", "B", "C", "D"].map((letter, oIndex) => (
                   <div key={oIndex} className="flex mb-2">
                     <span className="mr-2 font-bold">{letter}.</span>
@@ -424,7 +409,7 @@ export default function CreateExam() {
               </div>
 
               <div>
-                <label className="block text-gray-700 mb-1">
+                <label className="block text-white-700 mb-1">
                   Correct Answer
                 </label>
                 <select
@@ -436,7 +421,7 @@ export default function CreateExam() {
                       e.target.value
                     )
                   }
-                  className="border rounded px-3 py-2"
+                  className="border bg-black text-blue-400 rounded px-4 py-3"
                 >
                   <option value="A">A</option>
                   <option value="B">B</option>
@@ -452,7 +437,7 @@ export default function CreateExam() {
           <button
             onClick={uploadToIPFS}
             disabled={isLoading}
-            className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 disabled:bg-gray-400"
+            className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-700  disabled:bg-gray-400"
             type="button"
           >
             {isLoading ? "Uploading..." : "Upload to IPFS"}
@@ -465,7 +450,7 @@ export default function CreateExam() {
           <div>
             {cid && (
               <div className="p-4 bg-green-50 border border-green-200 rounded">
-                <h3 className="font-bold text-green-700 mb-2">
+                <h3 className="font-bold text-blue-400 mb-2">
                   Upload Successful!
                 </h3>
                 <p className="mb-2">Content Identifier (CID):</p>
