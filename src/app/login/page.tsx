@@ -1,36 +1,38 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 const LoginPage = () => {
   const router = useRouter();
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    if (username === 'admin' && password === 'password123') {
-      router.push('/admin');
+    if (username === "admin" && password === "123") {
+      router.push("/admin");
     } else {
-      setError('Invalid username or password');
+      setError("Invalid username or password");
     }
   };
 
   return (
     <div className="login-container">
-      <h1>Admin Login</h1>
+      <h1 className="text-black">Admin Login</h1>
       <form onSubmit={handleLogin}>
         <input
           type="text"
-          placeholder="Username"
+          placeholder="Username :: admin"
+          className="text-black"
           value={username}
           onChange={(e) => setUsername(e.target.value)}
         />
         <input
           type="password"
-          placeholder="Password"
+          className="text-black"
+          placeholder="Password :: 123"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
         />

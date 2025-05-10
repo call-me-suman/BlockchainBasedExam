@@ -16,7 +16,8 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-speech-recognition": "^4.0.0",
-    "thirdweb": "^5.93.14"
+    "thirdweb": "^5.93.14",
+    "viem": "^2.26.3"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",

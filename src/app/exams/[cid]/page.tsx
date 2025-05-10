@@ -539,7 +539,7 @@ import SpeechRecognition, {
   useSpeechRecognition,
 } from "react-speech-recognition"; // ✅ Voice support
 
-fetch("http://localhost:8000/check-screen")
+fetch(`${process.env.PROCTOR_URL}/check-screen`)
   .then((res) => res.json())
   .then((data) => {
     if (data.status === "flagged") {
@@ -564,13 +564,13 @@ interface ExamData {
 type BlockchainExamsData = [bigint[], string[], bigint[], bigint[], boolean[]];
 
 const client = createThirdwebClient({
-  clientId: "f74a735820f866854c58f30896bc36a5",
+  clientId: `${process.env.CLIENT_ID}`,
 });
 
 const contract = getContract({
   client,
   chain: defineChain(11155111),
-  address: "0x34B9fD9b646Ade28fDd659Bf34Edd027c60445B1",
+  address: `${process.env.ADDRESS}`,
 });
 
 export const useGetAllExams = () => {

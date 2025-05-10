@@ -8,11 +8,15 @@ import json
 import tempfile
 import google.generativeai as genai
 from PIL import Image
+from dotenv import load_dotenv
+
+load_dotenv('.env.local')
+
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS to allow requests from your React app
-
-API_KEY = "AIzaSyDSWginf-Spn_wnydu2GpQk6aE6IxlDVH0"  # Replace with your actual API key
+API_KEY  = os.getenv('GENAI_KEY')
+ # Replace with your actual API key
 genai.configure(api_key=API_KEY)
 
 @app.route('/extract', methods=['POST'])

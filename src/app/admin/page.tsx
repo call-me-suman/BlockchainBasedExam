@@ -6,21 +6,9 @@ import {
   useIsExamAvailable,
   useExamFunctions,
 } from "../../../utils/blockchain";
-import { useActiveAccount } from "thirdweb/react";
-import { prepareContractCall, sendTransaction } from "thirdweb";
-import { contract } from "../../../utils/contract";
-import Link from "next/link";
-
-// Define types for contract and account
-type ContractType = any; // Replace with your specific contract type when available
-type AccountType = any; // Replace with your specific account type when available
-
-// Create a utility function for logging admin activity
 
 export default function AdminDashboard() {
   const router = useRouter();
-  const acc = useActiveAccount();
-  const account = acc?.address;
   const {
     data: examsData,
     isLoading: examsLoading,
@@ -58,19 +46,10 @@ export default function AdminDashboard() {
     }
   }, [examsData]);
 
-  const handleStatusChange = async (
-    examId: bigint,
-    currentStatus: boolean,
-    examTitle: string
-  ) => {
+  const handleStatusChange = async (examId: bigint, currentStatus: boolean) => {
     setStatusUpdating((prev) => ({ ...prev, [examId.toString()]: true }));
     try {
-      // Update exam status
       await updateExamStatus(examId, !currentStatus);
-
-      // Log the activity
-      const newStatus = !currentStatus ? "activated" : "deactivated";
-
       // Wait a moment before refetching to allow the blockchain to update
       setTimeout(() => {
         refetch();
@@ -82,33 +61,30 @@ export default function AdminDashboard() {
     }
   };
 
-  const navigateToUpload = async () => {
-    try {
-      // Log navigation to upload page
-    } catch (error) {
-      console.error("Failed to log navigation:", error);
-    }
+  const navigateToUpload = () => {
     router.push("/upload");
   };
 
-  // Log dashboard access on component mount
+  const formatDate = (timestamp: bigint) => {
+    return new Date(Number(timestamp) * 1000).toLocaleString();
+  };
+
+  const formatDuration = (seconds: bigint) => {
+    const hours = Math.floor(Number(seconds) / 3600);
+    const minutes = Math.floor((Number(seconds) % 3600) / 60);
+    return `${hours}h ${minutes}m`;
+  };
 
   return (
     <div className="min-h-screen bg-gray-900 p-6">
       <div className="max-w-7xl mx-auto">
         <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold text-white-800">
+          <h1 className="text-3xl font-bold text-white">
             Exam Admin Dashboard
           </h1>
-          <Link
-            href="/centreadmin"
-            className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 ml-[400px] px-6 rounded-lg shadow"
-          >
-            Centre Admin
-          </Link>
           <button
             onClick={navigateToUpload}
-            className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-6 rounded-lg shadow"
+            className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg shadow"
           >
             Upload New Exam
           </button>
@@ -116,13 +92,11 @@ export default function AdminDashboard() {
 
         {/* Filter controls */}
         <div className="mb-6">
-          <div className="bg-black p-4 rounded-lg shadow-sm border border-gray-200">
-            <h2 className="text-lg font-medium text-white-700 mb-3">Filters</h2>
-            <div className="flex flex-wrap gap-4">
+          <div className="bg-gray-900 p-4 rounded-lg shadow-sm border border-black">
+            <h2 className="text-lg font-medium text-white mb-3">Filters</h2>
+            <div className="flex flex-wrap gap-2">
               <button
-                onClick={() => {
-                  setStatusFilter("all");
-                }}
+                onClick={() => setStatusFilter("all")}
                 className={`px-3 py-1.5 rounded-md text-sm font-medium ${
                   statusFilter === "all"
                     ? "bg-blue-100 text-blue-800 border-2 border-blue-300"
@@ -132,9 +106,7 @@ export default function AdminDashboard() {
                 All Exams
               </button>
               <button
-                onClick={() => {
-                  setStatusFilter("in-progress");
-                }}
+                onClick={() => setStatusFilter("in-progress")}
                 className={`px-3 py-1.5 rounded-md text-sm font-medium ${
                   statusFilter === "in-progress"
                     ? "bg-green-100 text-green-800 border-2 border-green-300"
@@ -144,9 +116,7 @@ export default function AdminDashboard() {
                 In Progress
               </button>
               <button
-                onClick={() => {
-                  setStatusFilter("scheduled");
-                }}
+                onClick={() => setStatusFilter("scheduled")}
                 className={`px-3 py-1.5 rounded-md text-sm font-medium ${
                   statusFilter === "scheduled"
                     ? "bg-blue-100 text-blue-800 border-2 border-blue-300"
@@ -156,9 +126,7 @@ export default function AdminDashboard() {
                 Scheduled
               </button>
               <button
-                onClick={() => {
-                  setStatusFilter("expired");
-                }}
+                onClick={() => setStatusFilter("expired")}
                 className={`px-3 py-1.5 rounded-md text-sm font-medium ${
                   statusFilter === "expired"
                     ? "bg-yellow-100 text-yellow-800 border-2 border-yellow-300"
@@ -168,9 +136,7 @@ export default function AdminDashboard() {
                 Expired
               </button>
               <button
-                onClick={() => {
-                  setStatusFilter("not-available");
-                }}
+                onClick={() => setStatusFilter("not-available")}
                 className={`px-3 py-1.5 rounded-md text-sm font-medium ${
                   statusFilter === "not-available"
                     ? "bg-red-100 text-red-800 border-2 border-red-300"
@@ -180,9 +146,7 @@ export default function AdminDashboard() {
                 Not Available
               </button>
               <button
-                onClick={() => {
-                  setStatusFilter("completed");
-                }}
+                onClick={() => setStatusFilter("completed")}
                 className={`px-3 py-1.5 rounded-md text-sm font-medium ${
                   statusFilter === "completed"
                     ? "bg-purple-100 text-purple-800 border-2 border-purple-300"
@@ -213,18 +177,14 @@ export default function AdminDashboard() {
                   onStatusChange={handleStatusChange}
                   isUpdating={statusUpdating[exam.id.toString()]}
                   statusFilter={statusFilter}
-                  contract={contract}
-                  account={account}
                 />
               ))
             ) : (
-              <div>
-                <div className="col-span-full bg-gray-50 p-8 rounded-lg text-center">
-                  <p className="text-lg text-gray-600">No exams found.</p>
-                  <p className="text-gray-500 mt-2">
-                    Click &quot;Upload New Exam&quot; to create your first exam.
-                  </p>
-                </div>
+              <div className="col-span-full bg-gray-50 p-8 rounded-lg text-center">
+                <p className="text-lg text-gray-600">No exams found.</p>
+                <p className="text-gray-500 mt-2">
+                  Click "Upload New Exam" to create your first exam.
+                </p>
               </div>
             )}
           </div>
@@ -234,13 +194,12 @@ export default function AdminDashboard() {
   );
 }
 
+// Separate component for each exam card to efficiently use the useIsExamAvailable hook
 function ExamCard({
   exam,
   onStatusChange,
   isUpdating,
   statusFilter,
-  contract,
-  account,
 }: {
   exam: {
     id: bigint;
@@ -256,8 +215,6 @@ function ExamCard({
   ) => Promise<void>;
   isUpdating: boolean;
   statusFilter: string;
-  contract: ContractType;
-  account: AccountType;
 }) {
   // Get the actual availability status from the blockchain
   const { data: isAvailable, isLoading: availabilityLoading } =

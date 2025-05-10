@@ -1,13 +1,13 @@
-'use client';
+"use client";
 
-import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 
 const HomePage = () => {
   const router = useRouter();
 
-  const redirectToPage = (page: 'admin' | 'student') => {
-    router.push(page === 'admin' ? '/login' : '/student');
+  const redirectToPage = (page: "admin" | "student") => {
+    router.push(page === "admin" ? "/login" : "/student");
   };
 
   return (
@@ -15,26 +15,27 @@ const HomePage = () => {
       {/* Header Section */}
       <header className="header">
         <div className="logo">EduLedger</div>
-        <nav className="nav">
-          <a href="#home" className="nav-link">Home</a>
-          <a href="#about" className="nav-link">About</a>
-          <a href="#contact" className="nav-link">Contact</a>
-        </nav>
       </header>
 
       {/* Hero Section */}
       <section className="hero">
-        <h1>Empowering Education with Blockchain</h1>
+        <h1>Tamperproof Transparent Without compromising the security</h1>
         <p>
-          EduLedger is a decentralized platform that harnesses blockchain technology to secure and
-          enhance learning. Choose your role to begin your blockchain journey.
+          EduLedger is a decentralized Trustless Online Examination system that
+          transforms how high stakes exams are conducted
         </p>
 
         <div className="auth-container">
-          <button className="redirect-btn student" onClick={() => redirectToPage('student')}>
+          <button
+            className="redirect-btn student"
+            onClick={() => redirectToPage("student")}
+          >
             🎓 Student Access
           </button>
-          <button className="redirect-btn admin" onClick={() => redirectToPage('admin')}>
+          <button
+            className="redirect-btn admin"
+            onClick={() => redirectToPage("admin")}
+          >
             🛡️ Admin Access
           </button>
         </div>
@@ -42,16 +43,19 @@ const HomePage = () => {
 
       {/* Footer Section */}
       <footer className="footer">
-        <p>&copy; 2025 EduLedger — Revolutionizing Learning Through Blockchain</p>
+        <p>
+          &copy; 2025 EduLedger — Revolutionizing Learning Through Blockchain
+        </p>
       </footer>
 
       {/* Styles */}
       <style jsx>{`
-        html, body {
+        html,
+        body {
           height: 100%;
           margin: 0;
           padding: 0;
-          font-family: 'Segoe UI', Roboto, sans-serif;
+          font-family: "Segoe UI", Roboto, sans-serif;
           background: linear-gradient(120deg, #1a2980, #26d0ce);
           color: #ffffff;
         }
@@ -70,7 +74,7 @@ const HomePage = () => {
           padding: 1.5rem 2rem;
           background: rgba(0, 0, 0, 0.3);
           backdrop-filter: blur(10px);
-          box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
           position: sticky;
           top: 0;
           z-index: 100;

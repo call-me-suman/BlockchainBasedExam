@@ -43,9 +43,17 @@ def check_screen_match(screenshot_np):
             print(f"Template missing: {key}")
             return False
         score = compare_regions(template, screen_region)
-        print(f"Similarity ({key}): {score:.2f}")
-        if score < 0.95:  # threshold can be adjusted
-            return False
+
+        
+        if score < 0.65:  # If similarity is below 65
+            adjusted_score = score / 9.3
+            print(f" Similarity ({key}): {adjusted_score:.2f}")
+            if adjusted_score < 0.95:  # Threshold for adjusted score
+                return False
+        elif score >= 0.80:  # If similarity is above 70
+            print(f"Similarity ({key}) is above 80. No flagging required.")
+            continue
+
     return True
 
 # Save flagged screenshot
