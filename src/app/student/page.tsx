@@ -102,6 +102,7 @@ export default function StudentDashboard() {
   }, [isSubmitted, submissionStatusLoading, currentExamIndex, exams]);
 
   // Process all exams data
+  // Process all exams data
   useEffect(() => {
     const loadExams = async () => {
       setLoading(true);
@@ -148,7 +149,7 @@ export default function StudentDashboard() {
     if (!examsLoading && allExams) {
       loadExams();
     }
-  }, [allExams, examsLoading, address]);
+  }, [allExams, examsLoading, address, currentTime]);
 
   const handleTakeExam = (examId: bigint) => {
     setSelectedExamId(examId);

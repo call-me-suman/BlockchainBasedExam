@@ -1,6 +1,5 @@
 "use client";
 import React, { useEffect, useState } from "react";
-import { useSendTransaction } from "thirdweb/react";
 
 interface QuestionResult {
   questionIndex: number;

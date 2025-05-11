@@ -1,13 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import Spinner from "../../components/Spinner";
 import { contract } from "../../../utils/contract";
 
 import { prepareContractCall } from "thirdweb";
-import { useActiveAccount, useSendTransaction } from "thirdweb/react";
-import axios from "axios";
+import { useSendTransaction } from "thirdweb/react";
+import axios, { AxiosError } from "axios";
 
 interface Question {
   question: string;
@@ -68,14 +67,17 @@ export default function CreateExam() {
     );
   }, [examData.startTime]);
 
-  const handleExamDataChange = (field: keyof ExamData, value: any) => {
+  const handleExamDataChange = (
+    field: keyof ExamData,
+    value: string | number
+  ) => {
     setExamData({ ...examData, [field]: value });
   };
 
   const handleQuestionChange = (
     index: number,
     field: keyof Question,
-    value: any
+    value: string
   ) => {
     const updatedQuestions = [...examData.questions];
     updatedQuestions[index] = {
@@ -188,10 +190,13 @@ export default function CreateExam() {
               : examData.questions,
         });
       }
-    } catch (err: any) {
-      setExtractError(
-        `Failed to extract text: ${err.response?.data?.error || err.message}`
-      );
+    } catch (err: unknown) {
+      const error = err as Error | AxiosError;
+      const errorMessage = axios.isAxiosError(error)
+        ? error.response?.data?.error || error.message
+        : (error as Error).message;
+
+      setExtractError(`Failed to extract text: ${errorMessage}`);
       console.error(err);
     } finally {
       setIsExtracting(false);

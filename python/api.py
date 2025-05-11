@@ -17,7 +17,8 @@ app = Flask(__name__)
 CORS(app)  # Enable CORS to allow requests from your React app
 API_KEY  = os.getenv('GENAI_KEY')
  # Replace with your actual API key
-genai.configure(api_key=API_KEY)
+genai.configure(api_key="AIzaSyDX1RRoXiLZxo9783jC5dZzdbjF3v-85-4")
+
 
 @app.route('/extract', methods=['POST'])
 def extract_mcqs():

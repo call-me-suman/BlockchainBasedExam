@@ -65,16 +65,6 @@ export default function AdminDashboard() {
     router.push("/upload");
   };
 
-  const formatDate = (timestamp: bigint) => {
-    return new Date(Number(timestamp) * 1000).toLocaleString();
-  };
-
-  const formatDuration = (seconds: bigint) => {
-    const hours = Math.floor(Number(seconds) / 3600);
-    const minutes = Math.floor((Number(seconds) % 3600) / 60);
-    return `${hours}h ${minutes}m`;
-  };
-
   return (
     <div className="min-h-screen bg-gray-900 p-6">
       <div className="max-w-7xl mx-auto">
@@ -183,7 +173,7 @@ export default function AdminDashboard() {
               <div className="col-span-full bg-gray-50 p-8 rounded-lg text-center">
                 <p className="text-lg text-gray-600">No exams found.</p>
                 <p className="text-gray-500 mt-2">
-                  Click "Upload New Exam" to create your first exam.
+                  Click &quot;Upload New Exam&quot; to create your first exam.
                 </p>
               </div>
             )}

@@ -1,12 +1,19 @@
 import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 import { pinata } from "../../../../../utils/config";
 
+// Explicitly type the params to match what Next.js expects
 export async function GET(
-  request: Request,
+  request: NextRequest,
   { params }: { params: { cid: string } }
 ) {
   try {
-    const { cid } = await params;
+    // Access the cid directly from params without awaiting
+    const cid = params.cid;
+
+    if (!cid) {
+      return NextResponse.json({ error: "CID is required" }, { status: 400 });
+    }
 
     // Get the content from IPFS using the gateway
     const url = await pinata.gateways.public.convert(cid);
