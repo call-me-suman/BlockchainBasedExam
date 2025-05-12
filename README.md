@@ -1,36 +1,90 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# EduLedger – Blockchain-based Exam Platform
 
-## Getting Started
+EduLedger is a decentralized exam platform that leverages blockchain technology to provide secure, transparent, and voice-enabled online examinations. Built with Next.js, Thirdweb, and Pinata, EduLedger ensures a seamless exam experience for students while offering robust administrative control for exam creators and center administrators.
 
-First, run the development server:
+## Key Features
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+### 🎓 Student Role
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+- View all available exams.
+- Access exams and submit answers.
+- Voice-enabled responses (e.g., saying "OPTION A" selects Option A).
+- Real-time proctoring with tab-switch detection and flagging.
+- View results if the exam is completed.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### 🛠️ Admin Role
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- Create and upload exams as screenshots.
+- Automatic question extraction from screenshots with edit capability.
+- View all created exams.
 
-## Learn More
+### 🏫 Centre Admin Role
 
-To learn more about Next.js, take a look at the following resources:
+- View all student submissions.
+- Disable or enable exams as needed.
+- Monitor exam integrity.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Tech Stack
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- **Frontend:** Next.js (React framework)
+- **Blockchain:** Thirdweb (smart contract deployment)
+- **Storage:** Pinata (IPFS for questions and results)
+- **Voice Commands:** Speech Recognition API
+- **Proctoring:** Tab activity monitoring
 
-## Deploy on Vercel
+## Installation and Setup
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+1. **Clone the Repository**
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+   ```bash
+   git clone https://github.com/call-me-suman/BlockchainBasedExam.git
+   cd BlockchainBasedExam
+   ```
+
+2. **Install Dependencies**
+
+   ```bash
+   npm install
+   ```
+
+3. **Configure Environment Variables**
+
+   - Set up your Thirdweb and Pinata API keys in the `.env` file.
+   - Example:
+
+   ```env
+   NEXT_PUBLIC_THIRDWEB_CLIENT_ID=your_thirdweb_clientId
+   NEXT_PUBLIC_THIRDWEB_ADDRESS=your_thirdweb_address
+   PINATA_API_KEY=your_pinata_api_key
+   PINATA_SECRET_API_KEY=your_pinata_secret_api_key
+   ```
+
+4. **Run the Application**
+
+   ```bash
+   npm run dev
+   ```
+
+5. **Deploy Smart Contracts**
+
+   - Deploy your smart contracts using Thirdweb.
+
+6. **Access the Application**
+
+   - Open your browser and navigate to `http://localhost:3000`
+
+## Screenshots
+
+![Main Page Screenshot](./screenshots/main-page.png)
+
+## Contributing
+
+Feel free to submit issues, fork the repository, and make pull requests. For significant changes, please open an issue first to discuss what you would like to change.
+
+## License
+
+This project is licensed under the MIT License.
+
+## Contact
+
+For any queries, reach out to [Suman](mailto:sumank366929@gmail.com).
