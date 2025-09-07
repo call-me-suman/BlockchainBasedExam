@@ -12,17 +12,19 @@ import {
   useGetStudentSubmission,
   useExamFunctions,
 } from "../../../utils/blockchain";
-import { useActiveAccount } from "thirdweb/react";
+import { useActiveAccount, useReadContract } from "thirdweb/react";
 import React from "react";
+import { contract } from "../../../utils/contract";
 
 interface Exam {
+  hasSubmitted: unknown;
   id: bigint;
   title: string;
   startTime: bigint;
   duration: bigint;
   isActive: boolean;
   isAvailable: boolean;
-  hasSubmitted: boolean;
+  // hasSubmitted: boolean;
   status: "active" | "upcoming" | "expired" | "inactive";
 }
 
@@ -244,7 +246,7 @@ const SearchModal: React.FC<SearchModalProps> = ({
                           {exam.status.charAt(0).toUpperCase() +
                             exam.status.slice(1)}{" "}
                           •{" "}
-                          {exam.hasSubmitted ? " Submitted" : " Not Submitted"}
+                          {/* {exam.hasSubmitted ? " Submitted" : " Not Submitted"} */}
                         </p>
                       </div>
                       <div
@@ -281,6 +283,148 @@ const ExamRowSkeleton: React.FC = () => (
   </tr>
 );
 
+// Custom hook for submission status checking
+const useSubmissionStatusForExams = (
+  examIds: bigint[],
+  studentAddress: string
+) => {
+  const [submissionStatuses, setSubmissionStatuses] = useState<
+    Map<string, boolean>
+  >(new Map());
+  const [loading, setLoading] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (!examIds.length || !studentAddress) {
+      setSubmissionStatuses(new Map());
+      return;
+    }
+
+    const fetchSubmissionStatuses = async () => {
+      setLoading(true);
+      const statusMap = new Map<string, boolean>();
+
+      try {
+        // Process exams in batches to avoid overwhelming the blockchain
+        const batchSize = 5;
+        for (let i = 0; i < examIds.length; i += batchSize) {
+          const batch = examIds.slice(i, i + batchSize);
+
+          const batchPromises = batch.map(async (examId) => {
+            try {
+              // You'll need to create a function in your blockchain utils that returns a promise
+              // instead of using the hook directly
+              const isSubmitted = await checkStudentSubmission(
+                studentAddress,
+                examId
+              );
+              return { examId, isSubmitted };
+            } catch (error) {
+              console.error(
+                `Error checking submission for exam ${examId}:`,
+                error
+              );
+              return { examId, isSubmitted: false };
+            }
+          });
+
+          const batchResults = await Promise.all(batchPromises);
+          batchResults.forEach(({ examId, isSubmitted }) => {
+            statusMap.set(examId.toString(), isSubmitted);
+          });
+        }
+
+        setSubmissionStatuses(statusMap);
+      } catch (error) {
+        console.error("Error fetching submission statuses:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchSubmissionStatuses();
+  }, [examIds, studentAddress]);
+
+  return { submissionStatuses, loading };
+};
+// You can place this component inside your StudentDashboard file, before the main export
+
+const ExamActions: React.FC<{
+  exam: Exam;
+  isVerified: boolean;
+  handleTakeExam: (id: bigint) => void;
+  handleViewResults: (id: bigint) => void;
+  address: string;
+}> = ({ exam, isVerified, handleTakeExam, handleViewResults, address }) => {
+  // CORRECT USAGE: Call the hook at the top level of a React component.
+  const { data: hasSubmitted, isLoading } = useReadContract({
+    contract,
+    method:
+      "function hasSubmitted(uint256 examId, address student) view returns (bool)",
+    // Only run the query if the student is verified
+    params: [exam.id, address],
+  });
+
+  // Render a loading state while checking
+  if (isLoading) {
+    return (
+      <div className="flex items-center gap-2">
+        <div className="w-4 h-4 border-2 border-gray-500 border-t-gray-300 rounded-full animate-spin"></div>
+        <span className="text-gray-400 text-sm">Checking...</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center justify-between w-full">
+      <div>
+        {hasSubmitted ? (
+          <span className="bg-emerald-500/20 text-emerald-400 px-3 py-1.5 rounded-lg text-sm inline-flex items-center gap-2">
+            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+              <path
+                fillRule="evenodd"
+                d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                clipRule="evenodd"
+              />
+            </svg>
+            Submitted
+          </span>
+        ) : (
+          <span className="bg-gray-700/50 text-gray-400 px-3 py-1.5 rounded-lg text-sm">
+            Not Submitted
+          </span>
+        )}
+      </div>
+
+      <div>
+        {hasSubmitted ? (
+          <button
+            onClick={() => handleViewResults(exam.id)}
+            className="bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 shadow-md shadow-emerald-500/20 hover:shadow-emerald-500/30 hover:scale-105"
+            disabled={!isVerified}
+          >
+            View Results
+          </button>
+        ) : exam.status === "active" ? (
+          <button
+            onClick={() => handleTakeExam(exam.id)}
+            className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 shadow-md shadow-blue-500/20 hover:shadow-blue-500/30 hover:scale-105"
+            disabled={!isVerified}
+          >
+            Take Exam
+          </button>
+        ) : (
+          <button
+            disabled
+            className="bg-gray-700/50 text-gray-500 px-4 py-2 rounded-lg text-sm cursor-not-allowed"
+          >
+            {exam.status === "expired" ? "Expired" : "Not Available"}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+};
+
 export default function StudentDashboard(): JSX.Element {
   const router = useRouter();
   const account = useActiveAccount();
@@ -303,8 +447,6 @@ export default function StudentDashboard(): JSX.Element {
 
   // Use refs to avoid re-render loops
   const currentTimeRef = useRef<bigint>(BigInt(Math.floor(Date.now() / 1000)));
-  const submissionCacheRef = useRef<Map<string, boolean>>(new Map());
-  const isInitializedRef = useRef<boolean>(false);
 
   // Blockchain hooks
   const {
@@ -326,13 +468,19 @@ export default function StudentDashboard(): JSX.Element {
   const { data: submissionCid, isLoading: submissionCidLoading } =
     useGetStudentSubmission(viewSubmissionId || BigInt(0), address);
 
-  const { registerStudentandVerify, verifyStudent, transactionError } =
-    useExamFunctions();
+  const { registerStudentandVerify, transactionError } = useExamFunctions();
 
-  // Memoized current time
-  const currentTime = useMemo(() => currentTimeRef.current, []);
+  // Extract exam IDs for submission checking
+  const examIds = useMemo(() => {
+    if (!allExams || !allExams[0]) return [];
+    return allExams[0] as bigint[];
+  }, [allExams]);
 
-  // Calculate exam status - fixed to be more stable
+  // Use custom hook for submission statuses
+  const { submissionStatuses, loading: submissionLoading } =
+    useSubmissionStatusForExams(examIds, isVerified ? address : "");
+
+  // Calculate exam status
   const calculateExamStatus = useCallback(
     (
       startTime: bigint,
@@ -351,57 +499,6 @@ export default function StudentDashboard(): JSX.Element {
     []
   );
 
-  // Custom hook to check submission status
-  const useSubmissionStatus = (examId: bigint, studentAddress: string) => {
-    const [isSubmitted, setIsSubmitted] = useState<boolean>(false);
-    const [isLoading, setIsLoading] = useState<boolean>(true);
-
-    useEffect(() => {
-      if (!examId || !studentAddress) {
-        setIsLoading(false);
-        return;
-      }
-
-      const checkSubmission = async () => {
-        const cacheKey = `${examId}-${studentAddress}`;
-
-        // Check cache first
-        if (submissionCacheRef.current.has(cacheKey)) {
-          setIsSubmitted(submissionCacheRef.current.get(cacheKey) || false);
-          setIsLoading(false);
-          return;
-        }
-
-        try {
-          setIsLoading(true);
-
-          // Use the existing hook to check submission
-          const { data: submissionData } = useGetStudentSubmission(
-            examId,
-            studentAddress
-          );
-          const hasSubmission = !!(
-            submissionData && submissionData.toString().length > 0
-          );
-
-          // Cache the result
-          submissionCacheRef.current.set(cacheKey, hasSubmission);
-          setIsSubmitted(hasSubmission);
-        } catch (error) {
-          console.error(`Error checking submission for exam ${examId}:`, error);
-          submissionCacheRef.current.set(cacheKey, false);
-          setIsSubmitted(false);
-        } finally {
-          setIsLoading(false);
-        }
-      };
-
-      checkSubmission();
-    }, [examId, studentAddress]);
-
-    return { isSubmitted, isLoading };
-  };
-
   // Handle registration and verification
   const handleRegistrationFlow = useCallback(async (): Promise<void> => {
     if (!address) return;
@@ -414,7 +511,6 @@ export default function StudentDashboard(): JSX.Element {
         message: "Account setup complete! You can now access exams.",
       });
 
-      // Optimistic update - assume verification will succeed
       setTimeout(async () => {
         await refetchVerification();
       }, 2000);
@@ -452,7 +548,7 @@ export default function StudentDashboard(): JSX.Element {
     };
 
     updateTime();
-    const interval = setInterval(updateTime, 60000); // Update every minute
+    const interval = setInterval(updateTime, 60000);
     return () => clearInterval(interval);
   }, []);
 
@@ -480,14 +576,9 @@ export default function StudentDashboard(): JSX.Element {
     }
   }, [submissionCid, submissionCidLoading, viewSubmissionId, router]);
 
-  // Main data loading effect - FIXED to prevent infinite loops
+  // Main data loading effect
   useEffect(() => {
-    if (
-      !address ||
-      verificationLoading ||
-      examsLoading ||
-      isInitializedRef.current
-    ) {
+    if (!address || verificationLoading || examsLoading) {
       return;
     }
 
@@ -509,7 +600,7 @@ export default function StudentDashboard(): JSX.Element {
           return;
         }
 
-        // Process exams without submission status initially
+        // Process exams with submission status
         const processedExams: Exam[] = examIds.map(
           (id: bigint, index: number) => {
             const startTime = startTimes[index];
@@ -520,6 +611,9 @@ export default function StudentDashboard(): JSX.Element {
               activeStatus[index]
             );
 
+            // Get hasSubmitted from submissionStatuses map
+            const hasSubmitted = submissionStatuses.get(id.toString()) ?? false;
+
             return {
               id,
               title: titles[index],
@@ -527,7 +621,7 @@ export default function StudentDashboard(): JSX.Element {
               duration,
               isActive: activeStatus[index],
               isAvailable: status === "active",
-              hasSubmitted: false, // Will be updated later
+              hasSubmitted,
               status,
             };
           }
@@ -545,12 +639,6 @@ export default function StudentDashboard(): JSX.Element {
         });
 
         setExams(sortedExams);
-        isInitializedRef.current = true;
-
-        // Load submission statuses asynchronously
-        if (isVerified) {
-          loadSubmissionStatuses(sortedExams);
-        }
       } catch (error) {
         console.error("Error loading exams:", error);
         setExams([]);
@@ -560,91 +648,17 @@ export default function StudentDashboard(): JSX.Element {
     };
 
     loadExamsData();
-  }, [address, allExams, isVerified, calculateExamStatus]); // Removed loading states from deps
+  }, [
+    address,
+    allExams,
+    isVerified,
+    calculateExamStatus,
+    submissionStatuses,
+    verificationLoading,
+    examsLoading,
+  ]);
 
-  // Separate function to load submission statuses
-  const loadSubmissionStatuses = async (examsList: Exam[]) => {
-    if (!isVerified || !address) return;
-
-    try {
-      const submissionPromises = examsList.map(async (exam) => {
-        const cacheKey = `${exam.id}-${address}`;
-
-        if (submissionCacheRef.current.has(cacheKey)) {
-          return {
-            examId: exam.id,
-            hasSubmitted: submissionCacheRef.current.get(cacheKey) || false,
-          };
-        }
-
-        try {
-          // Create a temporary hook call - this needs to be refactored
-          // For now, we'll use a different approach
-          const response = await checkSubmissionExists(exam.id, address);
-          submissionCacheRef.current.set(cacheKey, response);
-          return { examId: exam.id, hasSubmitted: response };
-        } catch (error) {
-          console.error(
-            `Error checking submission for exam ${exam.id}:`,
-            error
-          );
-          submissionCacheRef.current.set(cacheKey, false);
-          return { examId: exam.id, hasSubmitted: false };
-        }
-      });
-
-      const submissionResults = await Promise.allSettled(submissionPromises);
-
-      // Update exams with submission status
-      setExams((prev) =>
-        prev.map((exam) => {
-          const result = submissionResults.find(
-            (r, index) =>
-              r.status === "fulfilled" && examsList[index].id === exam.id
-          );
-
-          if (result && result.status === "fulfilled") {
-            return { ...exam, hasSubmitted: result.value.hasSubmitted };
-          }
-
-          return exam;
-        })
-      );
-    } catch (error) {
-      console.error("Error loading submission statuses:", error);
-    }
-  };
-
-  // Improved submission check function
-  const checkSubmissionExists = async (
-    examId: bigint,
-    studentAddress: string
-  ): Promise<boolean> => {
-    try {
-      // This should be replaced with a direct contract call or API call
-      // instead of using the hook inside a function
-
-      // Placeholder implementation - replace with your actual logic
-      const response = await fetch(
-        `/api/submissions/${examId}/${studentAddress}`,
-        {
-          method: "GET",
-        }
-      );
-
-      if (!response.ok) {
-        return false;
-      }
-
-      const data = await response.json();
-      return !!(data && data.submissionCid && data.submissionCid.length > 0);
-    } catch (error) {
-      console.error("Error checking submission:", error);
-      return false;
-    }
-  };
-
-  // Grouped exams - memoized for performance
+  // Grouped exams
   const groupedExams = useMemo(() => {
     return {
       active: exams.filter((e) => e.status === "active"),
@@ -663,17 +677,6 @@ export default function StudentDashboard(): JSX.Element {
     setViewSubmissionId(examId);
   }, []);
 
-  const handleSearchSelect = useCallback(
-    (exam: Exam): void => {
-      if (exam.status === "active" && !exam.hasSubmitted) {
-        handleTakeExam(exam.id);
-      } else if (exam.hasSubmitted) {
-        handleViewResults(exam.id);
-      }
-    },
-    [handleTakeExam, handleViewResults]
-  );
-
   // Utility functions
   const formatTime = useCallback((timestamp: bigint): string => {
     const date = new Date(Number(timestamp) * 1000);
@@ -690,6 +693,14 @@ export default function StudentDashboard(): JSX.Element {
     }
     return `${minutes}m`;
   }, []);
+  const checkForsubmission = (examID: bigint, address: string) => {
+    return useReadContract({
+      contract,
+      method:
+        "function hasSubmitted(uint256 examId, address student) view returns (bool)",
+      params: [examID, address],
+    });
+  };
 
   const getStatusDisplay = useCallback(
     (status: string): { text: string; color: string } => {
@@ -775,56 +786,14 @@ export default function StudentDashboard(): JSX.Element {
                   </div>
 
                   <div className="flex items-center justify-between">
-                    <div>
-                      {exam.hasSubmitted ? (
-                        <span className="bg-emerald-500/20 text-emerald-400 px-3 py-1.5 rounded-lg text-sm inline-flex items-center gap-2">
-                          <svg
-                            className="w-4 h-4"
-                            fill="currentColor"
-                            viewBox="0 0 20 20"
-                          >
-                            <path
-                              fillRule="evenodd"
-                              d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                              clipRule="evenodd"
-                            />
-                          </svg>
-                          Submitted
-                        </span>
-                      ) : (
-                        <span className="bg-gray-700/50 text-gray-400 px-3 py-1.5 rounded-lg text-sm">
-                          Not Submitted
-                        </span>
-                      )}
-                    </div>
-
-                    <div>
-                      {exam.hasSubmitted ? (
-                        <button
-                          onClick={() => handleViewResults(exam.id)}
-                          className="bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 shadow-md shadow-emerald-500/20 hover:shadow-emerald-500/30 hover:scale-105"
-                          disabled={!isVerified}
-                        >
-                          View Results
-                        </button>
-                      ) : exam.status === "active" ? (
-                        <button
-                          onClick={() => handleTakeExam(exam.id)}
-                          className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 shadow-md shadow-blue-500/20 hover:shadow-blue-500/30 hover:scale-105"
-                          disabled={!isVerified}
-                        >
-                          Take Exam
-                        </button>
-                      ) : (
-                        <button
-                          disabled
-                          className="bg-gray-700/50 text-gray-500 px-4 py-2 rounded-lg text-sm cursor-not-allowed"
-                        >
-                          {exam.status === "expired"
-                            ? "Expired"
-                            : "Not Available"}
-                        </button>
-                      )}
+                    <div className="flex items-center justify-between">
+                      <ExamActions
+                        exam={exam}
+                        isVerified={isVerified || false}
+                        address={address}
+                        handleTakeExam={handleTakeExam}
+                        handleViewResults={handleViewResults}
+                      />
                     </div>
                   </div>
                 </div>
@@ -920,7 +889,7 @@ export default function StudentDashboard(): JSX.Element {
         isOpen={searchOpen}
         onClose={() => setSearchOpen(false)}
         exams={exams}
-        onSelectExam={handleSearchSelect}
+        onSelectExam={(exam) => handleTakeExam(exam.id)}
       />
 
       <RegistrationModal
@@ -1145,4 +1114,7 @@ export default function StudentDashboard(): JSX.Element {
       </div>
     </div>
   );
+}
+function checkStudentSubmission(studentAddress: string, examId: bigint) {
+  throw new Error("Function not implemented.");
 }
