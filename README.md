@@ -1,90 +1,154 @@
-# EduLedger – Blockchain-based Exam Platform
+## eduproc – Blockchain-based Exam Platform
 
-EduLedger is a decentralized exam platform that leverages blockchain technology to provide secure, transparent, and voice-enabled online examinations. Built with Next.js, Thirdweb, and Pinata, EduLedger ensures a seamless exam experience for students while offering robust administrative control for exam creators and center administrators.
+eduproc is a decentralized, voice-enabled online examination system built on Next.js, Thirdweb, and Pinata. Exams and results are stored on IPFS, while critical actions are recorded on-chain (Sepolia), ensuring transparency, immutability, and tamper resistance. Optional proctoring hooks provide basic integrity checks.
 
-## Key Features
+### Key Features
 
-### 🎓 Student Role
+- **Student**
+  - View and take exams from an IPFS `cid` route (`/exams/[cid]`).
+  - Answer via UI or voice commands (e.g., "Option A", "Next", "Submit").
+  - Local scoring with results uploaded to IPFS and anchored on-chain.
+  - View detailed results via `/results/[cid]`.
 
-- View all available exams.
-- Access exams and submit answers.
-- Voice-enabled responses (e.g., saying "OPTION A" selects Option A).
-- Real-time proctoring with tab-switch detection and flagging.
-- View results if the exam is completed.
+- **Admin**
+  - Create exams with title, start time, and duration.
+  - Import questions from text or document (image/PDF) using Gemini extraction.
+  - Upload exam JSON to IPFS and register the exam on-chain.
 
-### 🛠️ Admin Role
+- **Centre Admin (intended)**
+  - Toggle exam activation and monitor submissions (contract helpers provided).
 
-- Create and upload exams as screenshots.
-- Automatic question extraction from screenshots with edit capability.
-- View all created exams.
+### Tech Stack
 
-### 🏫 Centre Admin Role
+- **Frontend**: Next.js 15, React 19, Tailwind (utility classes in JSX)
+- **Blockchain**: Thirdweb (Sepolia testnet)
+- **Storage**: Pinata (IPFS)
+- **AI**: Google Generative AI (Gemini 1.5 Flash) for question extraction
+- **Voice**: `react-speech-recognition`
+- **Proctoring**: External endpoint via `PROCTOR_URL` (optional)
 
-- View all student submissions.
-- Disable or enable exams as needed.
-- Monitor exam integrity.
+### Project Structure
 
-## Tech Stack
+```text
+src/
+  app/
+    api/
+      exams/              # Upload to IPFS and fetch by CID
+        [cid]/
+          route.ts        # GET: Read exam/results JSON from IPFS
+        route.ts          # POST: Upload JSON to IPFS
+      extract/
+        route.ts          # POST: Extract MCQs from text or file using Gemini
+    exams/[cid]/page.tsx  # Student exam runner (voice-enabled, timer, submit)
+    results/[cid]/page.tsx# Results viewer for an IPFS CID
+    upload/page.tsx       # Admin exam builder/uploader
+  components/             # UI components
+utils/
+  blockchain.ts           # Thirdweb hooks (read/write helpers)
+  contract.ts             # Thirdweb client + contract config
+  config.ts               # Pinata client
+```
 
-- **Frontend:** Next.js (React framework)
-- **Blockchain:** Thirdweb (smart contract deployment)
-- **Storage:** Pinata (IPFS for questions and results)
-- **Voice Commands:** Speech Recognition API
-- **Proctoring:** Tab activity monitoring
+### Environment Variables
 
-## Installation and Setup
+Create a `.env` file and set the following:
 
-1. **Clone the Repository**
+```env
+# Thirdweb
+NEXT_PUBLIC_CLIENT_ID=your_thirdweb_client_id
+NEXT_PUBLIC_ADDRESS=your_contract_address
 
-   ```bash
-   git clone https://github.com/call-me-suman/BlockchainBasedExam.git
-   cd BlockchainBasedExam
-   ```
+# Pinata
+PINATA_JWT=your_pinata_jwt
+NEXT_PUBLIC_GATEWAY_URL=your_public_gateway_base_url
 
-2. **Install Dependencies**
+# Google Generative AI (Gemini)
+GENAI_KEY=your_gemini_api_key
 
-   ```bash
-   npm install
-   ```
+# Proctoring (optional)
+PROCTOR_URL=https://your-proctor-service.example.com
+```
 
-3. **Configure Environment Variables**
+### Scripts
 
-   - Set up your Thirdweb and Pinata API keys in the `.env` file.
-   - Example:
+```bash
+npm run dev     # Start dev server with Turbopack
+npm run build   # Production build
+npm run start   # Start production server
+npm run lint    # Lint
+```
 
-   ```env
-   NEXT_PUBLIC_THIRDWEB_CLIENT_ID=your_thirdweb_clientId
-   NEXT_PUBLIC_THIRDWEB_ADDRESS=your_thirdweb_address
-   PINATA_API_KEY=your_pinata_api_key
-   PINATA_SECRET_API_KEY=your_pinata_secret_api_key
-   ```
+### Setup & Run
 
-4. **Run the Application**
+1. Install dependencies
+```bash
+npm install
+```
+2. Configure environment variables (see above).
+3. Start the app
+```bash
+npm run dev
+```
+4. Open `http://localhost:3000`.
 
-   ```bash
-   npm run dev
-   ```
+### Core Flows
 
-5. **Deploy Smart Contracts**
+- **Create & Deploy Exam (Admin)**
+  1) Go to `/upload`.
+  2) Fill exam metadata (title, start time, duration).
+  3) Import questions via document or paste text; review/edit.
+  4) Click "Deploy Exam" → uploads JSON to IPFS via `/api/exams` → calls contract `createExamWithQuestions(title, start, duration, cid)`.
 
-   - Deploy your smart contracts using Thirdweb.
+- **Take Exam (Student)**
+  1) Navigate to `/exams/[cid]` (the exam’s IPFS CID).
+  2) Read from IPFS via `/api/exams/[cid]` and begin.
+  3) Answer questions by UI or voice commands.
+  4) On submit: calculate score → upload results JSON to IPFS → call `submitAnswers(examId, resultsCid)`.
 
-6. **Access the Application**
+- **View Results**
+  - Visit `/results/[cid]` to render the results JSON from IPFS.
 
-   - Open your browser and navigate to `http://localhost:3000`
+### API Overview
 
-## Screenshots
+- `POST /api/exams`
+  - Body: arbitrary JSON (exam or results)
+  - Action: Uploads to Pinata. Returns `{ cid, url }`.
 
-![Main Page Screenshot](./screenshots/main-page.png)
+- `GET /api/exams/:cid`
+  - Action: Fetches and returns JSON content from IPFS via Pinata gateway.
 
-## Contributing
+- `POST /api/extract`
+  - Accepts: `multipart/form-data` with `file`, or JSON `{ text }`.
+  - Action: Calls Gemini and returns a strict array of `{ question, options, answer_index }`.
 
-Feel free to submit issues, fork the repository, and make pull requests. For significant changes, please open an issue first to discuss what you would like to change.
+### Smart Contract Integration
 
-## License
+- Network: Sepolia (chain id 11155111)
+- Primary methods used:
+  - `createExamWithQuestions(string title, uint256 startTime, uint256 duration, string questionsHash)`
+  - `submitAnswers(uint256 examId, string answerHash)`
+- Helpers available in `utils/blockchain.ts` for reads/writes (e.g., `getAllExams`, `getExamById`, `getAllSubmissions`, `verifyStudent`, `updateExamStatus`).
 
-This project is licensed under the MIT License.
+### Voice Commands
 
-## Contact
+- "Option A/B/C/D" – select answer
+- "Next" / "Previous" – navigate
+- "Submit" – submit exam
 
-For any queries, reach out to [Suman](mailto:sumank366929@gmail.com).
+### Proctoring
+
+- If `PROCTOR_URL` is set, the exam page calls `${PROCTOR_URL}/check-screen` to display basic warnings on suspicious activity.
+
+### Security & Notes
+
+- Do not store secrets in client-visible env vars (`NEXT_PUBLIC_*`). Keep `PINATA_JWT` and `GENAI_KEY` server-side only.
+- Results are uploaded to IPFS before being referenced on-chain. Consider encrypting payloads if required by policy.
+- Validate and sanitize extracted questions before publishing.
+
+### License
+
+MIT
+
+### Contact
+
+For questions, open an issue or contact the maintainer.

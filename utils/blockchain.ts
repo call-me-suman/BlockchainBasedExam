@@ -7,7 +7,7 @@ import { useReadContract } from "thirdweb/react";
 
 // Create the client with your clientId
 const client = createThirdwebClient({
-  clientId: "116b3c1063b8f963d72d7286daa689b2",
+  clientId: `${process.env.NEXT_PUBLIC_CLIENT_ID}`,
   // clientId: "0e1f854c4c9b1a453af2935960947936",
 });
 
@@ -17,7 +17,7 @@ const contract = getContract({
   chain: defineChain(11155111), // Sepolia testnet
   // address: "0x17e8FfF2395938B1B45e7e01e5a079E1996662ac",
 
-  address: "0xC33FDB55D1812578560421613c6D58cEf8C4e801",
+  address: `${process.env.NEXT_PUBLIC_ADDRESS}`,
 });
 
 // Write Functions
@@ -58,21 +58,27 @@ export const useExamFunctions = () => {
     }
   };
 
-  const registerStudent = async (studentId: string) => {
+  const registerStudentandVerify = async (studentId: string) => {
     if (!studentId || studentId.trim() === "") {
       throw new Error("Student ID cannot be empty");
     }
 
     try {
-      const transaction = await prepareContractCall({
+      // const transaction = await prepareContractCall({
+      //   contract,
+      //   method: "function registerStudent(string studentId)",
+      //   params: [studentId],
+      // });
+
+      // return sendTransaction(transaction);
+      const transaction = prepareContractCall({
         contract,
-        method: "function registerStudent(string studentId)",
+        method: "function registerAndVerifyStudent(string studentId)",
         params: [studentId],
       });
-
-      return sendTransaction(transaction);
+      sendTransaction(transaction);
     } catch (error) {
-      console.error("Error registering student:", error);
+      console.error("Error registering student or verifing them :", error);
       throw error;
     }
   };
@@ -139,7 +145,7 @@ export const useExamFunctions = () => {
 
   return {
     createExam,
-    registerStudent,
+    registerStudentandVerify,
     submitAnswers,
     updateExamStatus,
     verifyStudent,
@@ -255,4 +261,19 @@ export const useGetAllSubmissions = (examId: bigint) => {
       "function getAllSubmissions(uint256 examId) view returns (address[] students, string[] submissions)",
     params: [examId],
   });
+};
+export const useAddAdmin = async (address: string) => {
+  const { mutate: sendTransaction } = useSendTransaction();
+  try {
+    const transaction = await prepareContractCall({
+      contract,
+      method: "function addAdmin(address admin)",
+      params: [address],
+    });
+
+    return sendTransaction(transaction);
+  } catch (error) {
+    console.error("Error adding the admin:", error);
+    throw error;
+  }
 };

@@ -133,7 +133,7 @@ export default function AdminDashboard() {
                     : "bg-gray-100 hover:bg-gray-200 text-gray-700"
                 }`}
               >
-                Not Available
+                Upcoming
               </button>
               <button
                 onClick={() => setStatusFilter("completed")}
@@ -260,7 +260,7 @@ function ExamCard({
         };
       } else {
         return {
-          label: "Not Available",
+          label: "Upcoming",
           colorClasses: "bg-red-900/30 text-red-300",
           statusKey: "not-available",
           glowColor: "rgba(239, 68, 68, 0.3)",

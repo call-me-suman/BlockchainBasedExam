@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, JSX } from "react";
 import { useRouter } from "next/navigation";
+import { useCallback, useRef } from "react";
 import Spinner from "@/components/Spinner";
 import {
   useIsStudentVerified,
@@ -9,8 +10,10 @@ import {
   useGetQuestions,
   useIsStudentSubmitted,
   useGetStudentSubmission,
+  useExamFunctions,
 } from "../../../utils/blockchain";
 import { useActiveAccount } from "thirdweb/react";
+import React from "react";
 
 interface Exam {
   id: bigint;
@@ -20,54 +23,448 @@ interface Exam {
   isActive: boolean;
   isAvailable: boolean;
   hasSubmitted: boolean;
+  status: "active" | "upcoming" | "expired" | "inactive";
 }
 
-export default function StudentDashboard() {
+interface RegistrationModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onRegister: () => Promise<void>;
+  isLoading: boolean;
+}
+
+interface SuccessToastProps {
+  message: string;
+  isVisible: boolean;
+  onHide: () => void;
+}
+
+interface ExamSectionProps {
+  title: string;
+  exams: Exam[];
+  icon: string;
+}
+
+interface SearchModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  exams: Exam[];
+  onSelectExam: (exam: Exam) => void;
+}
+
+// Registration Modal Component
+const RegistrationModal: React.FC<RegistrationModalProps> = ({
+  isOpen,
+  onClose,
+  onRegister,
+  isLoading,
+}) => {
+  if (!isOpen) return null;
+
+  const handleRegisterAndVerify = async (): Promise<void> => {
+    await onRegister();
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+      <div className="bg-gray-900/95 backdrop-blur-lg rounded-xl shadow-2xl border border-gray-700 p-8 w-full max-w-md mx-4">
+        <div className="text-center mb-6">
+          <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full mx-auto mb-4 flex items-center justify-center">
+            <svg
+              className="w-8 h-8 text-white"
+              fill="currentColor"
+              viewBox="0 0 20 20"
+            >
+              <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3z" />
+            </svg>
+          </div>
+          <h2 className="text-2xl text-white font-bold mb-2">
+            Join as Student
+          </h2>
+          <p className="text-gray-300">
+            Register and verify your account to access exams
+          </p>
+        </div>
+
+        <div className="flex gap-3">
+          <button
+            onClick={onClose}
+            className="flex-1 bg-gray-700/50 hover:bg-gray-600/50 text-gray-300 px-4 py-3 rounded-lg transition-all duration-200"
+            disabled={isLoading}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleRegisterAndVerify}
+            disabled={isLoading}
+            className="flex-1 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white px-4 py-3 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          >
+            {isLoading ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                Setting up account...
+              </>
+            ) : (
+              "Get Started"
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Success Toast Component
+const SuccessToast: React.FC<SuccessToastProps> = ({
+  message,
+  isVisible,
+  onHide,
+}) => {
+  useEffect(() => {
+    if (isVisible) {
+      const timer = setTimeout(() => {
+        onHide();
+      }, 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [isVisible, onHide]);
+
+  if (!isVisible) return null;
+
+  return (
+    <div className="fixed top-4 right-4 z-50 animate-in slide-in-from-right-4 duration-300">
+      <div className="bg-emerald-500/90 backdrop-blur-lg text-white px-6 py-4 rounded-lg shadow-lg border border-emerald-400/30 flex items-center gap-3">
+        <svg
+          className="w-5 h-5 flex-shrink-0"
+          fill="currentColor"
+          viewBox="0 0 20 20"
+        >
+          <path
+            fillRule="evenodd"
+            d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+            clipRule="evenodd"
+          />
+        </svg>
+        <span className="font-medium">{message}</span>
+      </div>
+    </div>
+  );
+};
+
+// Search Modal Component
+const SearchModal: React.FC<SearchModalProps> = ({
+  isOpen,
+  onClose,
+  exams,
+  onSelectExam,
+}) => {
+  const [searchTerm, setSearchTerm] = useState<string>("");
+
+  const filteredExams = useMemo(() => {
+    return exams.filter((exam) =>
+      exam.title.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [exams, searchTerm]);
+
+  const handleExamSelect = (exam: Exam): void => {
+    onSelectExam(exam);
+    onClose();
+    setSearchTerm("");
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center pt-20 bg-black/60 backdrop-blur-sm">
+      <div className="bg-gray-900/95 backdrop-blur-lg rounded-xl shadow-2xl border border-gray-700 w-full max-w-2xl mx-4">
+        <div className="p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <svg
+              className="w-5 h-5 text-gray-400"
+              fill="currentColor"
+              viewBox="0 0 20 20"
+            >
+              <path
+                fillRule="evenodd"
+                d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z"
+                clipRule="evenodd"
+              />
+            </svg>
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Search exams..."
+              className="flex-1 bg-transparent text-white text-lg focus:outline-none"
+              autoFocus
+            />
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-white transition-colors"
+            >
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                <path
+                  fillRule="evenodd"
+                  d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                  clipRule="evenodd"
+                />
+              </svg>
+            </button>
+          </div>
+
+          <div className="max-h-96 overflow-y-auto">
+            {filteredExams.length === 0 ? (
+              <div className="text-center py-8 text-gray-400">
+                <svg
+                  className="w-12 h-12 mx-auto mb-3 opacity-50"
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+                <p>No exams found</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {filteredExams.map((exam) => (
+                  <button
+                    key={String(exam.id)}
+                    onClick={() => handleExamSelect(exam)}
+                    className="w-full text-left p-4 rounded-lg bg-gray-800/50 hover:bg-gray-700/50 border border-gray-700/50 hover:border-gray-600/50 transition-all duration-200"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="text-white font-medium">{exam.title}</h4>
+                        <p className="text-gray-400 text-sm">
+                          {exam.status.charAt(0).toUpperCase() +
+                            exam.status.slice(1)}{" "}
+                          •{" "}
+                          {exam.hasSubmitted ? " Submitted" : " Not Submitted"}
+                        </p>
+                      </div>
+                      <div
+                        className={`px-2 py-1 rounded-full text-xs ${
+                          exam.status === "active"
+                            ? "bg-emerald-500/20 text-emerald-400"
+                            : exam.status === "upcoming"
+                            ? "bg-blue-500/20 text-blue-400"
+                            : "bg-gray-500/20 text-gray-400"
+                        }`}
+                      >
+                        {exam.status}
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Skeleton Components
+const ExamRowSkeleton: React.FC = () => (
+  <tr className="text-gray-300 animate-pulse">
+    {[...Array(6)].map((_, i) => (
+      <td key={i} className="px-4 py-4 border-r border-gray-800">
+        <div className="h-4 bg-gray-700/50 rounded animate-pulse"></div>
+      </td>
+    ))}
+  </tr>
+);
+
+export default function StudentDashboard(): JSX.Element {
   const router = useRouter();
   const account = useActiveAccount();
-  const address = account?.address || "";
-  const [loading, setLoading] = useState(true);
+  const address: string = account?.address || "";
+
+  // State management
+  const [loading, setLoading] = useState<boolean>(true);
   const [exams, setExams] = useState<Exam[]>([]);
   const [selectedExamId, setSelectedExamId] = useState<bigint | null>(null);
   const [viewSubmissionId, setViewSubmissionId] = useState<bigint | null>(null);
-  const [currentExamIndex, setCurrentExamIndex] = useState<number | null>(null);
-  const [currentTime, setCurrentTime] = useState(BigInt(0));
+  const [searchOpen, setSearchOpen] = useState<boolean>(false);
+  const [registrationModalOpen, setRegistrationModalOpen] =
+    useState<boolean>(false);
+  const [registrationLoading, setRegistrationLoading] =
+    useState<boolean>(false);
+  const [successToast, setSuccessToast] = useState<{
+    show: boolean;
+    message: string;
+  }>({ show: false, message: "" });
 
-  // Get verification status
-  const { data: isVerified, isLoading: verificationLoading } =
-    useIsStudentVerified(address);
+  // Use refs to avoid re-render loops
+  const currentTimeRef = useRef<bigint>(BigInt(Math.floor(Date.now() / 1000)));
+  const submissionCacheRef = useRef<Map<string, boolean>>(new Map());
+  const isInitializedRef = useRef<boolean>(false);
 
-  // Get all exams with proper typing
-  const { data: allExams, isLoading: examsLoading } = useGetAllExams();
+  // Blockchain hooks
+  const {
+    data: isVerified,
+    isLoading: verificationLoading,
+    refetch: refetchVerification,
+  } = useIsStudentVerified(address);
 
-  // Get questions for the selected exam
+  const {
+    data: allExams,
+    isLoading: examsLoading,
+    error: examsError,
+  } = useGetAllExams();
+
   const { data: questionsData, isLoading: questionsLoading } = useGetQuestions(
     selectedExamId || BigInt(0)
   );
 
-  // Get submission status for current exam in focus
-  const { data: isSubmitted, isLoading: submissionStatusLoading } =
-    useIsStudentSubmitted(
-      address,
-      currentExamIndex !== null && exams[currentExamIndex]
-        ? exams[currentExamIndex].id
-        : BigInt(0)
-    );
-
   const { data: submissionCid, isLoading: submissionCidLoading } =
     useGetStudentSubmission(viewSubmissionId || BigInt(0), address);
 
+  const { registerStudentandVerify, verifyStudent, transactionError } =
+    useExamFunctions();
+
+  // Memoized current time
+  const currentTime = useMemo(() => currentTimeRef.current, []);
+
+  // Calculate exam status - fixed to be more stable
+  const calculateExamStatus = useCallback(
+    (
+      startTime: bigint,
+      duration: bigint,
+      isActive: boolean
+    ): "active" | "upcoming" | "expired" | "inactive" => {
+      if (!isActive) return "inactive";
+
+      const endTime = startTime + duration;
+      const now = currentTimeRef.current;
+
+      if (now < startTime) return "upcoming";
+      if (now > endTime) return "expired";
+      return "active";
+    },
+    []
+  );
+
+  // Custom hook to check submission status
+  const useSubmissionStatus = (examId: bigint, studentAddress: string) => {
+    const [isSubmitted, setIsSubmitted] = useState<boolean>(false);
+    const [isLoading, setIsLoading] = useState<boolean>(true);
+
+    useEffect(() => {
+      if (!examId || !studentAddress) {
+        setIsLoading(false);
+        return;
+      }
+
+      const checkSubmission = async () => {
+        const cacheKey = `${examId}-${studentAddress}`;
+
+        // Check cache first
+        if (submissionCacheRef.current.has(cacheKey)) {
+          setIsSubmitted(submissionCacheRef.current.get(cacheKey) || false);
+          setIsLoading(false);
+          return;
+        }
+
+        try {
+          setIsLoading(true);
+
+          // Use the existing hook to check submission
+          const { data: submissionData } = useGetStudentSubmission(
+            examId,
+            studentAddress
+          );
+          const hasSubmission = !!(
+            submissionData && submissionData.toString().length > 0
+          );
+
+          // Cache the result
+          submissionCacheRef.current.set(cacheKey, hasSubmission);
+          setIsSubmitted(hasSubmission);
+        } catch (error) {
+          console.error(`Error checking submission for exam ${examId}:`, error);
+          submissionCacheRef.current.set(cacheKey, false);
+          setIsSubmitted(false);
+        } finally {
+          setIsLoading(false);
+        }
+      };
+
+      checkSubmission();
+    }, [examId, studentAddress]);
+
+    return { isSubmitted, isLoading };
+  };
+
+  // Handle registration and verification
+  const handleRegistrationFlow = useCallback(async (): Promise<void> => {
+    if (!address) return;
+
+    setRegistrationLoading(true);
+    try {
+      await registerStudentandVerify(address);
+      setSuccessToast({
+        show: true,
+        message: "Account setup complete! You can now access exams.",
+      });
+
+      // Optimistic update - assume verification will succeed
+      setTimeout(async () => {
+        await refetchVerification();
+      }, 2000);
+    } catch (error) {
+      console.error("Registration error:", error);
+      setSuccessToast({
+        show: true,
+        message: "Setup failed. Please try again.",
+      });
+    } finally {
+      setRegistrationLoading(false);
+    }
+  }, [address, registerStudentandVerify, refetchVerification]);
+
+  // Keyboard shortcuts
   useEffect(() => {
-    setCurrentTime(BigInt(Math.floor(Date.now() / 1000)));
+    const handleKeyDown = (e: KeyboardEvent): void => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        setSearchOpen(true);
+      } else if (e.key === "Escape") {
+        setSearchOpen(false);
+        setRegistrationModalOpen(false);
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  // Navigate to exam page when questions are loaded
+  // Update time periodically
+  useEffect(() => {
+    const updateTime = (): void => {
+      currentTimeRef.current = BigInt(Math.floor(Date.now() / 1000));
+    };
+
+    updateTime();
+    const interval = setInterval(updateTime, 60000); // Update every minute
+    return () => clearInterval(interval);
+  }, []);
+
+  // Navigate to exam when questions are loaded
   useEffect(() => {
     if (selectedExamId && questionsData && !questionsLoading) {
       router.push(`/exams/${questionsData}`);
+      setSelectedExamId(null);
     }
   }, [questionsData, questionsLoading, selectedExamId, router]);
 
+  // Handle viewing submission results
   useEffect(() => {
     if (viewSubmissionId && submissionCid && !submissionCidLoading) {
       if (
@@ -78,128 +475,385 @@ export default function StudentDashboard() {
         router.push(`/results/${submissionCid}`);
       } else {
         console.log("No submission CID found for this exam");
-        setViewSubmissionId(null); // Reset to avoid repeated attempts
       }
+      setViewSubmissionId(null);
     }
   }, [submissionCid, submissionCidLoading, viewSubmissionId, router]);
 
-  // Update submission status for current exam in focus
+  // Main data loading effect - FIXED to prevent infinite loops
   useEffect(() => {
     if (
-      currentExamIndex !== null &&
-      exams[currentExamIndex] &&
-      !submissionStatusLoading &&
-      isSubmitted !== undefined
+      !address ||
+      verificationLoading ||
+      examsLoading ||
+      isInitializedRef.current
     ) {
-      const updatedExams = [...exams];
-      updatedExams[currentExamIndex] = {
-        ...updatedExams[currentExamIndex],
-        hasSubmitted: isSubmitted,
-      };
-      setExams(updatedExams);
-      setCurrentExamIndex(null); // Reset after updating
+      return;
     }
-  }, [isSubmitted, submissionStatusLoading, currentExamIndex, exams]);
 
-  // Process all exams data
-  // Process all exams data
-  useEffect(() => {
-    const loadExams = async () => {
-      setLoading(true);
+    const loadExamsData = async () => {
+      try {
+        setLoading(true);
 
-      if (allExams && address) {
-        // Properly type and destructure the allExams data
+        if (!allExams) {
+          console.log("No exams data available");
+          setExams([]);
+          return;
+        }
+
         const [examIds, titles, startTimes, durations, activeStatus] = allExams;
 
-        // First create all the exam objects with basic info
-        const formattedExams = examIds.map((id: bigint, index: number) => {
-          const startTime = startTimes[index];
-          const duration = durations[index];
+        if (!examIds || examIds.length === 0) {
+          console.log("No exams found");
+          setExams([]);
+          return;
+        }
 
-          const endTime = startTime + duration;
-          const isAvailable =
-            activeStatus[index] &&
-            currentTime >= startTime &&
-            currentTime <= endTime;
+        // Process exams without submission status initially
+        const processedExams: Exam[] = examIds.map(
+          (id: bigint, index: number) => {
+            const startTime = startTimes[index];
+            const duration = durations[index];
+            const status = calculateExamStatus(
+              startTime,
+              duration,
+              activeStatus[index]
+            );
 
-          return {
-            id,
-            title: titles[index],
-            startTime,
-            duration,
-            isActive: activeStatus[index],
-            isAvailable,
-            hasSubmitted: false, // Default value, will be updated
+            return {
+              id,
+              title: titles[index],
+              startTime,
+              duration,
+              isActive: activeStatus[index],
+              isAvailable: status === "active",
+              hasSubmitted: false, // Will be updated later
+              status,
+            };
+          }
+        );
+
+        // Sort exams by status priority
+        const sortedExams = processedExams.sort((a, b) => {
+          const statusOrder = {
+            active: 0,
+            upcoming: 1,
+            expired: 2,
+            inactive: 3,
           };
+          return statusOrder[a.status] - statusOrder[b.status];
         });
 
-        setExams(formattedExams);
+        setExams(sortedExams);
+        isInitializedRef.current = true;
 
-        // Then check submission status for each exam one by one
-        for (let i = 0; i < formattedExams.length; i++) {
-          setCurrentExamIndex(i);
-          // Wait a bit to let the hook run
-          await new Promise((resolve) => setTimeout(resolve, 100));
+        // Load submission statuses asynchronously
+        if (isVerified) {
+          loadSubmissionStatuses(sortedExams);
         }
+      } catch (error) {
+        console.error("Error loading exams:", error);
+        setExams([]);
+      } finally {
+        setLoading(false);
       }
-
-      setLoading(false);
     };
 
-    if (!examsLoading && allExams) {
-      loadExams();
+    loadExamsData();
+  }, [address, allExams, isVerified, calculateExamStatus]); // Removed loading states from deps
+
+  // Separate function to load submission statuses
+  const loadSubmissionStatuses = async (examsList: Exam[]) => {
+    if (!isVerified || !address) return;
+
+    try {
+      const submissionPromises = examsList.map(async (exam) => {
+        const cacheKey = `${exam.id}-${address}`;
+
+        if (submissionCacheRef.current.has(cacheKey)) {
+          return {
+            examId: exam.id,
+            hasSubmitted: submissionCacheRef.current.get(cacheKey) || false,
+          };
+        }
+
+        try {
+          // Create a temporary hook call - this needs to be refactored
+          // For now, we'll use a different approach
+          const response = await checkSubmissionExists(exam.id, address);
+          submissionCacheRef.current.set(cacheKey, response);
+          return { examId: exam.id, hasSubmitted: response };
+        } catch (error) {
+          console.error(
+            `Error checking submission for exam ${exam.id}:`,
+            error
+          );
+          submissionCacheRef.current.set(cacheKey, false);
+          return { examId: exam.id, hasSubmitted: false };
+        }
+      });
+
+      const submissionResults = await Promise.allSettled(submissionPromises);
+
+      // Update exams with submission status
+      setExams((prev) =>
+        prev.map((exam) => {
+          const result = submissionResults.find(
+            (r, index) =>
+              r.status === "fulfilled" && examsList[index].id === exam.id
+          );
+
+          if (result && result.status === "fulfilled") {
+            return { ...exam, hasSubmitted: result.value.hasSubmitted };
+          }
+
+          return exam;
+        })
+      );
+    } catch (error) {
+      console.error("Error loading submission statuses:", error);
     }
-  }, [allExams, examsLoading, address, currentTime]);
+  };
 
-  const handleTakeExam = (examId: bigint) => {
+  // Improved submission check function
+  const checkSubmissionExists = async (
+    examId: bigint,
+    studentAddress: string
+  ): Promise<boolean> => {
+    try {
+      // This should be replaced with a direct contract call or API call
+      // instead of using the hook inside a function
+
+      // Placeholder implementation - replace with your actual logic
+      const response = await fetch(
+        `/api/submissions/${examId}/${studentAddress}`,
+        {
+          method: "GET",
+        }
+      );
+
+      if (!response.ok) {
+        return false;
+      }
+
+      const data = await response.json();
+      return !!(data && data.submissionCid && data.submissionCid.length > 0);
+    } catch (error) {
+      console.error("Error checking submission:", error);
+      return false;
+    }
+  };
+
+  // Grouped exams - memoized for performance
+  const groupedExams = useMemo(() => {
+    return {
+      active: exams.filter((e) => e.status === "active"),
+      upcoming: exams.filter((e) => e.status === "upcoming"),
+      expired: exams.filter((e) => e.status === "expired"),
+      inactive: exams.filter((e) => e.status === "inactive"),
+    };
+  }, [exams]);
+
+  // Event handlers
+  const handleTakeExam = useCallback((examId: bigint): void => {
     setSelectedExamId(examId);
-  };
+  }, []);
 
-  const handleViewResults = (examId: bigint) => {
+  const handleViewResults = useCallback((examId: bigint): void => {
     setViewSubmissionId(examId);
-    console.log(submissionCid);
-    router.push(`/results/${submissionCid}`);
-  };
+  }, []);
 
-  const formatTime = (timestamp: bigint) => {
+  const handleSearchSelect = useCallback(
+    (exam: Exam): void => {
+      if (exam.status === "active" && !exam.hasSubmitted) {
+        handleTakeExam(exam.id);
+      } else if (exam.hasSubmitted) {
+        handleViewResults(exam.id);
+      }
+    },
+    [handleTakeExam, handleViewResults]
+  );
+
+  // Utility functions
+  const formatTime = useCallback((timestamp: bigint): string => {
     const date = new Date(Number(timestamp) * 1000);
     return date.toLocaleString();
-  };
+  }, []);
 
-  const getExamStatus = (exam: Exam) => {
-    if (typeof window === "undefined") return "Loading...";
-    const currentTime = BigInt(Math.floor(Date.now() / 1000));
+  const formatDuration = useCallback((duration: bigint): string => {
+    const minutes = Number(duration) / 60;
+    const hours = Math.floor(minutes / 60);
+    const remainingMinutes = minutes % 60;
 
-    if (!exam.isActive) {
-      return "Inactive";
-    } else if (currentTime < exam.startTime) {
-      return "Not Started";
-    } else if (currentTime > exam.startTime + exam.duration) {
-      return "Ended";
-    } else {
-      return "Active";
+    if (hours > 0) {
+      return `${hours}h ${remainingMinutes}m`;
     }
-  };
+    return `${minutes}m`;
+  }, []);
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "Active":
-        return "text-emerald-400";
-      case "Inactive":
-        return "text-red-400";
-      case "Not Started":
-        return "text-yellow-400";
-      case "Ended":
-        return "text-gray-400";
-      default:
-        return "";
+  const getStatusDisplay = useCallback(
+    (status: string): { text: string; color: string } => {
+      const statusMap = {
+        active: { text: "Active", color: "text-emerald-400 bg-emerald-500/20" },
+        upcoming: { text: "Upcoming", color: "text-blue-400 bg-blue-500/20" },
+        expired: { text: "Expired", color: "text-gray-400 bg-gray-500/20" },
+        inactive: { text: "Inactive", color: "text-red-400 bg-red-500/20" },
+      };
+      return (
+        statusMap[status as keyof typeof statusMap] || {
+          text: status,
+          color: "",
+        }
+      );
+    },
+    []
+  );
+
+  // ExamSection component
+  const ExamSection: React.FC<ExamSectionProps> = React.memo(
+    ({ title, exams, icon }) => {
+      if (exams.length === 0) return null;
+
+      return (
+        <div className="mb-8 animate-in slide-in-from-bottom-4 duration-500">
+          <div className="flex items-center gap-3 mb-4">
+            <span className="text-2xl">{icon}</span>
+            <h3 className="text-xl font-bold text-white">{title}</h3>
+            <span className="bg-gray-700/50 text-gray-300 px-2 py-1 rounded-full text-sm">
+              {exams.length}
+            </span>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {exams.map((exam) => {
+              const statusDisplay = getStatusDisplay(exam.status);
+              return (
+                <div
+                  key={String(exam.id)}
+                  className="bg-gray-900/40 backdrop-blur-sm rounded-xl border border-gray-700/40 p-6 hover:border-gray-600/60 transition-all duration-300 hover:scale-[1.02] hover:shadow-lg hover:shadow-blue-500/10"
+                >
+                  <div className="flex items-start justify-between mb-4">
+                    <h4 className="font-semibold text-white text-lg leading-tight">
+                      {exam.title}
+                    </h4>
+                    <span
+                      className={`px-3 py-1 rounded-full text-xs font-medium ${statusDisplay.color}`}
+                    >
+                      {statusDisplay.text}
+                    </span>
+                  </div>
+
+                  <div className="space-y-2 mb-4 text-sm text-gray-300">
+                    <div className="flex items-center gap-2">
+                      <svg
+                        className="w-4 h-4"
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                      <span>{formatTime(exam.startTime)}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <svg
+                        className="w-4 h-4"
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                      <span>Duration: {formatDuration(exam.duration)}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div>
+                      {exam.hasSubmitted ? (
+                        <span className="bg-emerald-500/20 text-emerald-400 px-3 py-1.5 rounded-lg text-sm inline-flex items-center gap-2">
+                          <svg
+                            className="w-4 h-4"
+                            fill="currentColor"
+                            viewBox="0 0 20 20"
+                          >
+                            <path
+                              fillRule="evenodd"
+                              d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                              clipRule="evenodd"
+                            />
+                          </svg>
+                          Submitted
+                        </span>
+                      ) : (
+                        <span className="bg-gray-700/50 text-gray-400 px-3 py-1.5 rounded-lg text-sm">
+                          Not Submitted
+                        </span>
+                      )}
+                    </div>
+
+                    <div>
+                      {exam.hasSubmitted ? (
+                        <button
+                          onClick={() => handleViewResults(exam.id)}
+                          className="bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 shadow-md shadow-emerald-500/20 hover:shadow-emerald-500/30 hover:scale-105"
+                          disabled={!isVerified}
+                        >
+                          View Results
+                        </button>
+                      ) : exam.status === "active" ? (
+                        <button
+                          onClick={() => handleTakeExam(exam.id)}
+                          className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 shadow-md shadow-blue-500/20 hover:shadow-blue-500/30 hover:scale-105"
+                          disabled={!isVerified}
+                        >
+                          Take Exam
+                        </button>
+                      ) : (
+                        <button
+                          disabled
+                          className="bg-gray-700/50 text-gray-500 px-4 py-2 rounded-lg text-sm cursor-not-allowed"
+                        >
+                          {exam.status === "expired"
+                            ? "Expired"
+                            : "Not Available"}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      );
     }
-  };
+  );
 
+  // Early returns for loading and error states
   if (!address) {
     return (
-      <div className="min-h-screen bg-black p-6 flex items-center justify-center">
-        <div className="bg-black/40 backdrop-blur-lg p-8 rounded-xl shadow-2xl border border-gray-800 w-full max-w-md text-center">
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 p-6 flex items-center justify-center">
+        <div className="bg-gray-900/40 backdrop-blur-lg p-8 rounded-xl shadow-2xl border border-gray-700 w-full max-w-md text-center animate-in slide-in-from-bottom-4 duration-500">
+          <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full mx-auto mb-4 flex items-center justify-center">
+            <svg
+              className="w-8 h-8 text-white"
+              fill="currentColor"
+              viewBox="0 0 20 20"
+            >
+              <path
+                fillRule="evenodd"
+                d="M18 8a6 6 0 01-7.743 5.743L10 14l-1 1-1 1H6v2H2v-4l4.257-4.257A6 6 0 1118 8zm-6-4a1 1 0 100 2 2 2 0 012 2 1 1 0 102 0 4 4 0 00-4-4z"
+                clipRule="evenodd"
+              />
+            </svg>
+          </div>
           <h2 className="text-2xl text-white font-bold mb-4">
             Wallet Not Connected
           </h2>
@@ -211,184 +865,283 @@ export default function StudentDashboard() {
     );
   }
 
-  if (
-    loading ||
-    verificationLoading ||
-    examsLoading ||
-    (selectedExamId && questionsLoading) ||
-    (viewSubmissionId && submissionCidLoading)
-  ) {
+  // Show loading only for initial load
+  if (loading) {
     return (
-      <div className="min-h-screen bg-black p-6 flex items-center justify-center">
-        <div className="text-xl font-semibold text-white">
-          {selectedExamId ? (
-            <>
-              <p className="mb-4">Loading exam...</p>
-              <Spinner />
-            </>
-          ) : viewSubmissionId ? (
-            <>
-              <p className="mb-4">Loading results...</p>
-              <Spinner />
-            </>
-          ) : (
-            <>
-              <p className="mb-4">Loading dashboard...</p>
-              <Spinner />
-            </>
-          )}
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 p-6">
+        <div className="max-w-7xl mx-auto">
+          <div className="bg-gray-900/50 backdrop-blur-lg rounded-xl shadow-2xl p-8 mb-6 border border-gray-700/40">
+            <div className="h-8 bg-gray-700/50 rounded w-64 mb-6 animate-pulse"></div>
+            <div className="mb-8 p-4 rounded-xl bg-gray-800/30 backdrop-blur-md border border-gray-700">
+              <div className="h-4 bg-gray-700/50 rounded w-32 mb-2 animate-pulse"></div>
+              <div className="h-4 bg-gray-700/50 rounded w-48 mb-4 animate-pulse"></div>
+              <div className="h-4 bg-gray-700/50 rounded w-28 animate-pulse"></div>
+            </div>
+            <div className="h-6 bg-gray-700/50 rounded w-48 mb-6 animate-pulse"></div>
+
+            <div className="overflow-x-auto rounded-xl border border-gray-700">
+              <table className="w-full border-collapse">
+                <thead>
+                  <tr className="bg-gray-800/30">
+                    {[
+                      "Exam Title",
+                      "Start Time",
+                      "Duration",
+                      "Status",
+                      "Submission",
+                      "Action",
+                    ].map((header) => (
+                      <th
+                        key={header}
+                        className="px-4 py-3 text-left border-b border-gray-700"
+                      >
+                        <div className="h-4 bg-gray-700/50 rounded animate-pulse"></div>
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {[...Array(5)].map((_, i) => (
+                    <ExamRowSkeleton key={i} />
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       </div>
     );
   }
 
+  // Main render
   return (
-    <div className="min-h-screen bg-black p-6">
-      <div className="max-w-5xl mx-auto">
-        <div className="bg-black/50 backdrop-blur-lg rounded-xl shadow-2xl p-8 mb-6 border border-blue-900/40">
-          <h1 className="text-3xl font-bold mb-6 text-white bg-clip-text bg-gradient-to-r from-blue-400 to-blue-600">
-            Student Dashboard
-          </h1>
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 p-6">
+      <SearchModal
+        isOpen={searchOpen}
+        onClose={() => setSearchOpen(false)}
+        exams={exams}
+        onSelectExam={handleSearchSelect}
+      />
 
-          <div className="mb-8 p-4 rounded-xl bg-black/30 backdrop-blur-md border border-gray-800">
-            <div className="flex flex-col md:flex-row md:items-center gap-4 mb-2">
-              <span className="font-semibold text-gray-300">
-                Wallet Address:
-              </span>
-              <span className="text-blue-400 font-mono text-sm md:text-base break-all">
-                {address}
-              </span>
-            </div>
+      <RegistrationModal
+        isOpen={registrationModalOpen}
+        onClose={() => setRegistrationModalOpen(false)}
+        onRegister={handleRegistrationFlow}
+        isLoading={registrationLoading}
+      />
 
-            <div className="flex flex-col md:flex-row md:items-center gap-4">
-              <span className="font-semibold text-gray-300">
-                Verification Status:
-              </span>
-              {isVerified ? (
-                <span className="bg-emerald-500/20 text-emerald-400 px-3 py-1.5 rounded-lg text-sm inline-block">
-                  Verified
-                </span>
-              ) : (
-                <span className="bg-red-500/20 text-red-400 px-3 py-1.5 rounded-lg text-sm inline-block">
-                  Not Verified
-                </span>
-              )}
+      <SuccessToast
+        message={successToast.message}
+        isVisible={successToast.show}
+        onHide={() => setSuccessToast({ show: false, message: "" })}
+      />
+
+      <div className="max-w-7xl mx-auto">
+        <div className="bg-gray-900/50 backdrop-blur-lg rounded-xl shadow-2xl p-8 mb-6 border border-gray-700/40 animate-in slide-in-from-top-4 duration-500">
+          <div className="flex items-center justify-between mb-6">
+            <h1 className="text-4xl font-bold text-white bg-gradient-to-r from-blue-400 via-purple-500 to-blue-600 bg-clip-text text-transparent">
+              Student Dashboard
+            </h1>
+
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setSearchOpen(true)}
+                className="flex items-center gap-2 bg-gray-800/50 hover:bg-gray-700/50 border border-gray-600/50 text-gray-300 px-4 py-2 rounded-lg transition-all duration-200 hover:scale-105"
+              >
+                <svg
+                  className="w-4 h-4"
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+                <span className="hidden sm:inline">Search</span>
+                <kbd className="hidden sm:inline-flex items-center px-2 py-1 bg-gray-700/50 text-xs rounded border border-gray-600/50">
+                  ⌘K
+                </kbd>
+              </button>
             </div>
           </div>
 
-          {!isVerified && (
-            <div className="mb-8 p-5 rounded-xl bg-yellow-500/10 border border-yellow-500/30">
-              <p className="text-yellow-400">
-                You are not verified yet. Please contact your instructor to get
-                verified.
-              </p>
-            </div>
-          )}
+          <div className="mb-8 p-6 rounded-xl bg-gray-800/30 backdrop-blur-md border border-gray-700/40">
+            <div className="grid md:grid-cols-2 gap-6">
+              <div className="flex flex-col gap-2">
+                <span className="font-semibold text-gray-400 text-sm uppercase tracking-wide">
+                  Wallet Address
+                </span>
+                <span className="text-blue-400 font-mono text-sm break-all bg-gray-900/50 px-3 py-2 rounded-lg">
+                  {address}
+                </span>
+              </div>
 
-          <h2 className="text-2xl font-bold mb-6 text-white">
-            Available Exams
-          </h2>
+              <div className="flex flex-col gap-2">
+                <span className="font-semibold text-gray-400 text-sm uppercase tracking-wide">
+                  Verification Status
+                </span>
+                <div>
+                  {isVerified ? (
+                    <span className="bg-emerald-500/20 text-emerald-400 px-4 py-2 rounded-lg text-sm inline-flex items-center gap-2 font-medium">
+                      <svg
+                        className="w-4 h-4"
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                      Verified Student
+                    </span>
+                  ) : (
+                    <div className="flex items-center gap-3">
+                      <span className="bg-yellow-500/20 text-yellow-400 px-4 py-2 rounded-lg text-sm inline-flex items-center gap-2 font-medium">
+                        <svg
+                          className="w-4 h-4"
+                          fill="currentColor"
+                          viewBox="0 0 20 20"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                        Not Verified
+                      </span>
+                      <button
+                        onClick={() => setRegistrationModalOpen(true)}
+                        className="text-blue-400 hover:text-blue-300 text-sm font-medium underline decoration-dotted underline-offset-4 transition-colors duration-200"
+                      >
+                        Register & Verify →
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
 
           {exams.length === 0 ? (
-            <p className="text-gray-400 italic">
-              No exams available at the moment.
-            </p>
+            <div className="text-center py-12 animate-in slide-in-from-bottom-4 duration-500">
+              <div className="w-24 h-24 bg-gradient-to-br from-gray-700 to-gray-800 rounded-full mx-auto mb-4 flex items-center justify-center">
+                <svg
+                  className="w-12 h-12 text-gray-400"
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M4 4a2 2 0 012-2h8a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm3 5a1 1 0 011-1h4a1 1 0 110 2H8a1 1 0 01-1-1zm0 3a1 1 0 011-1h4a1 1 0 110 2H8a1 1 0 01-1-1z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+              </div>
+              <h3 className="text-xl font-semibold text-gray-300 mb-2">
+                No Exams Available
+              </h3>
+              <p className="text-gray-400 mb-4">
+                {!isVerified
+                  ? "Register and verify your account to access available exams!"
+                  : "There are no exams scheduled at the moment. Check back later!"}
+              </p>
+              {!isVerified && (
+                <button
+                  onClick={() => setRegistrationModalOpen(true)}
+                  className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white px-6 py-3 rounded-lg font-medium transition-all duration-200 hover:scale-105 shadow-md shadow-blue-500/20 inline-flex items-center gap-2"
+                >
+                  <svg
+                    className="w-5 h-5"
+                    fill="currentColor"
+                    viewBox="0 0 20 20"
+                  >
+                    <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3z" />
+                  </svg>
+                  Get Started
+                </button>
+              )}
+            </div>
           ) : (
-            <div className="overflow-x-auto rounded-xl border border-gray-800">
-              <table className="w-full border-collapse">
-                <thead>
-                  <tr className="bg-blue-900/30 text-gray-200">
-                    <th className="px-4 py-3 text-left border-b border-gray-800">
-                      Exam Title
-                    </th>
-                    <th className="px-4 py-3 text-left border-b border-gray-800">
-                      Start Time
-                    </th>
-                    <th className="px-4 py-3 text-left border-b border-gray-800">
-                      Duration
-                    </th>
-                    <th className="px-4 py-3 text-left border-b border-gray-800">
-                      Status
-                    </th>
-                    <th className="px-4 py-3 text-left border-b border-gray-800">
-                      Submission
-                    </th>
-                    <th className="px-4 py-3 text-left border-b border-gray-800">
-                      Action
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-800">
-                  {exams.map((exam) => {
-                    const examStatus = getExamStatus(exam);
-                    const statusColor = getStatusColor(examStatus);
-
-                    return (
-                      <tr
-                        key={String(exam.id)}
-                        className="text-gray-300 hover:bg-blue-900/10 transition duration-150"
-                      >
-                        <td className="px-4 py-4 border-r border-gray-800 font-medium">
-                          {exam.title}
-                        </td>
-                        <td className="px-4 py-4 border-r border-gray-800">
-                          {formatTime(exam.startTime)}
-                        </td>
-                        <td className="px-4 py-4 border-r border-gray-800">{`${
-                          Number(exam.duration) / 60
-                        } minutes`}</td>
-                        <td
-                          className={`px-4 py-4 border-r border-gray-800 font-medium ${statusColor}`}
-                        >
-                          {examStatus}
-                        </td>
-                        <td className="px-4 py-4 border-r border-gray-800">
-                          {exam.hasSubmitted ? (
-                            <span className="bg-emerald-500/20 text-emerald-400 px-3 py-1.5 rounded-lg text-sm inline-block">
-                              Submitted
-                            </span>
-                          ) : (
-                            <span className="bg-gray-700/50 text-gray-400 px-3 py-1.5 rounded-lg text-sm inline-block">
-                              Not Submitted
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-4 py-4">
-                          {exam.hasSubmitted ? (
-                            <button
-                              onClick={() => handleViewResults(exam.id)}
-                              className="bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition duration-150 shadow-md shadow-emerald-500/20"
-                              disabled={!isVerified}
-                            >
-                              View Results
-                            </button>
-                          ) : examStatus === "Active" ? (
-                            <button
-                              onClick={() => handleTakeExam(exam.id)}
-                              className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition duration-150 shadow-md shadow-blue-500/20"
-                              disabled={!isVerified}
-                            >
-                              Take Exam
-                            </button>
-                          ) : (
-                            <button
-                              disabled
-                              className="bg-gray-700/50 text-gray-500 px-4 py-2 rounded-lg text-sm cursor-not-allowed"
-                            >
-                              {examStatus === "Ended"
-                                ? "Expired"
-                                : "Not Available"}
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+            <div className="space-y-8">
+              <ExamSection
+                title="Active Exams"
+                exams={groupedExams.active}
+                icon="🔴"
+              />
+              <ExamSection
+                title="Upcoming Exams"
+                exams={groupedExams.upcoming}
+                icon="🔵"
+              />
+              <ExamSection
+                title="Expired Exams"
+                exams={groupedExams.expired}
+                icon="⚫"
+              />
+              <ExamSection
+                title="Inactive Exams"
+                exams={groupedExams.inactive}
+                icon="🔘"
+              />
             </div>
           )}
         </div>
+
+        {/* Quick Stats */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+          <div className="bg-emerald-500/10 backdrop-blur-sm rounded-xl p-4 border border-emerald-500/20 animate-in slide-in-from-bottom-4 duration-500">
+            <div className="text-emerald-400 text-2xl font-bold">
+              {groupedExams.active.length}
+            </div>
+            <div className="text-emerald-300 text-sm">Active</div>
+          </div>
+          <div className="bg-blue-500/10 backdrop-blur-sm rounded-xl p-4 border border-blue-500/20 animate-in slide-in-from-bottom-4 duration-500 delay-75">
+            <div className="text-blue-400 text-2xl font-bold">
+              {groupedExams.upcoming.length}
+            </div>
+            <div className="text-blue-300 text-sm">Upcoming</div>
+          </div>
+          <div className="bg-gray-500/10 backdrop-blur-sm rounded-xl p-4 border border-gray-500/20 animate-in slide-in-from-bottom-4 duration-500 delay-150">
+            <div className="text-gray-400 text-2xl font-bold">
+              {groupedExams.expired.length}
+            </div>
+            <div className="text-gray-300 text-sm">Expired</div>
+          </div>
+          <div className="bg-purple-500/10 backdrop-blur-sm rounded-xl p-4 border border-purple-500/20 animate-in slide-in-from-bottom-4 duration-500 delay-200">
+            <div className="text-purple-400 text-2xl font-bold">
+              {exams.filter((e) => e.hasSubmitted).length}
+            </div>
+            <div className="text-purple-300 text-sm">Submitted</div>
+          </div>
+        </div>
+
+        {/* Loading states for individual actions */}
+        {selectedExamId && questionsLoading && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+            <div className="bg-gray-900/95 backdrop-blur-lg rounded-xl shadow-2xl border border-gray-700 p-8 text-center">
+              <Spinner />
+              <p className="mt-4 text-white font-medium">
+                Loading exam questions...
+              </p>
+            </div>
+          </div>
+        )}
+
+        {viewSubmissionId && submissionCidLoading && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+            <div className="bg-gray-900/95 backdrop-blur-lg rounded-xl shadow-2xl border border-gray-700 p-8 text-center">
+              <Spinner />
+              <p className="mt-4 text-white font-medium">
+                Loading exam results...
+              </p>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

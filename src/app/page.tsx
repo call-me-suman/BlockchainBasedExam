@@ -11,10 +11,7 @@ const HomePage = () => {
 
   return (
     <div className="container">
-      {/* Header Section */}
-      <header className="header">
-        <div className="logo">EduLedger</div>
-      </header>
+    
 
       {/* Hero Section */}
       <section className="hero">
@@ -29,13 +26,13 @@ const HomePage = () => {
             className="redirect-btn student"
             onClick={() => redirectToPage("student")}
           >
-            🎓 Student Access
+           Student Access
           </button>
           <button
             className="redirect-btn admin"
             onClick={() => redirectToPage("admin")}
           >
-            🛡️ Admin Access
+             Admin Access
           </button>
         </div>
       </section>

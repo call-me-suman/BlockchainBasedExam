@@ -2,7 +2,7 @@ import { createThirdwebClient, defineChain, getContract } from "thirdweb";
 
 export const client = createThirdwebClient({
   // clientId: "0e1f854c4c9b1a453af2935960947936",
-  clientId: `${process.env.CLIENT_ID}`,
+  clientId: `${process.env.NEXT_PUBLIC_CLIENT_ID}`,
 });
 const add = process.env.NEXT_PUBLIC_ADDRESS as string;
 // Connect to your contract
