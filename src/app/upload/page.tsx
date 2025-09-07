@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Spinner from "../../components/Spinner";
-import { contract } from "../../../utils/contract";
+import { getContractInstance } from "../../../utils/contract";
 
 import { prepareContractCall } from "thirdweb";
 import { useSendTransaction } from "thirdweb/react";
@@ -30,6 +30,7 @@ interface ExamData {
   questions: Question[];
 }
 
+const contract = getContractInstance();
 // Add custom styles for animations
 const styles = `
   @keyframes fadeIn {
@@ -760,8 +761,9 @@ export default function CreateExam() {
                   <div className="text-green-200">
                     {redirectIn !== null ? (
                       <p>
-                        Redirecting to <span className="font-semibold">/student</span> in {redirectIn}s...
-                        {" "}
+                        Redirecting to{" "}
+                        <span className="font-semibold">/student</span> in{" "}
+                        {redirectIn}s...{" "}
                         <button
                           onClick={() => router.push("/student")}
                           className="underline decoration-green-400 underline-offset-4 hover:text-green-300 ml-1"

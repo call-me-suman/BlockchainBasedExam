@@ -6,6 +6,20 @@ import { defineChain } from "thirdweb/chains";
 import { useReadContract } from "thirdweb/react";
 
 // Create the client with your clientId
+export function getClient() {
+  return createThirdwebClient({
+    clientId: process.env.NEXT_PUBLIC_CLIENT_ID || "",
+  });
+}
+
+export function getExamContract() {
+  const client = getClient();
+  return getContract({
+    client,
+    chain: defineChain(11155111), // Sepolia testnet
+    address: process.env.NEXT_PUBLIC_ADDRESS || "",
+  });
+}
 const client = createThirdwebClient({
   clientId: `${process.env.NEXT_PUBLIC_CLIENT_ID}`,
   // clientId: "0e1f854c4c9b1a453af2935960947936",

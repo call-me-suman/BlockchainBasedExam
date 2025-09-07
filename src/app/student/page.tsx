@@ -14,7 +14,9 @@ import {
 } from "../../../utils/blockchain";
 import { useActiveAccount, useReadContract } from "thirdweb/react";
 import React from "react";
-import { contract } from "../../../utils/contract";
+import { getContractInstance } from "../../../utils/contract";
+
+const contract = getContractInstance();
 
 interface Exam {
   hasSubmitted: unknown;
