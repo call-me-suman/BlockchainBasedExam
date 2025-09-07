@@ -205,7 +205,7 @@ export default function CreateExam() {
 
     try {
       const response = await axios.post(
-        `${process.env.PROCTOR_URL}/api/extract`,
+        `/api/extract`,
         { text: clipboardText },
         {
           headers: {
@@ -243,15 +243,11 @@ export default function CreateExam() {
     formData.append("file", file);
 
     try {
-      const response = await axios.post(
-        `${process.env.PROCTOR_URL}/api/extract`,
-        formData,
-        {
-          headers: {
-            "Content-Type": "multipart/form-data",
-          },
-        }
-      );
+      const response = await axios.post(`/api/extract`, formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
 
       addDebugLog("Document extraction response received", response.data);
       processExtractedQuestions(response.data);
