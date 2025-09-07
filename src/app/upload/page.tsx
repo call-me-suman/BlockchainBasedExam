@@ -205,7 +205,7 @@ export default function CreateExam() {
 
     try {
       const response = await axios.post(
-        "http://localhost:3000/api/extract",
+        `${process.env.PROCTOR_URL}api/extract`,
         { text: clipboardText },
         {
           headers: {

@@ -118,6 +118,9 @@ function ThirdwebConnect() {
 export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
+  const pathname = usePathname();
+
+  const isHome = pathname === "/";
   return (
     <html lang="en">
       <head>
@@ -129,7 +132,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-[#0b0f1a] text-white`}
       >
         <ThirdwebProvider>
-          <LogoLoader />
+          {isHome ? <></> : <LogoLoader />}
           <Navbar />
           <main>{children}</main>
         </ThirdwebProvider>
