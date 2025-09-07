@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { ConnectButton, ThirdwebProvider } from "thirdweb/react";
 import { createThirdwebClient } from "thirdweb";
+import { Router } from "next/router";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",

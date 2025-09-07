@@ -26,7 +26,7 @@ import vulnerableIcon from "@/assets/vulnerable-icon.png";
 import centralizedIcon from "@/assets/centralized-icon.png";
 import clunkyUxIcon from "@/assets/clunky-ux-icon.png";
 import Image from "next/image";
-import { Router } from "next/router";
+import { useRouter } from "next/navigation";
 
 // Futuristic Loader Component
 const FuturisticLoader = () => {
@@ -167,6 +167,7 @@ const FuturisticLoader = () => {
 const ExuprocLandingComplete = () => {
   const [isLoading, setIsLoading] = useState(true);
 
+  const router = useRouter();
   useEffect(() => {
     const timer = setTimeout(() => {
       setIsLoading(false);
@@ -390,6 +391,7 @@ const ExuprocLandingComplete = () => {
                 scale: 1.05,
                 boxShadow: "0 4px 16px rgba(99, 110, 123, 0.2)",
               }}
+              onClick={() => router.push("/student")}
             >
               <Users size={20} />
               Enter as Student
@@ -400,6 +402,9 @@ const ExuprocLandingComplete = () => {
                 scale: 1.05,
                 backgroundColor: "#636E7B",
                 color: "#F8FAFC",
+              }}
+              onClick={() => {
+                router.push("/admin");
               }}
             >
               <Shield size={20} />
