@@ -37,7 +37,7 @@ function Navbar() {
             <div className="hidden sm:block">
               <Image
                 src="/logo_with_name_without_background.png"
-                alt="eduproc"
+                alt="exuproc"
                 width={160}
                 height={28}
                 className="object-contain"
@@ -120,7 +120,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        <title>eduproc | Decentralized Exam Platform</title>
+        <title>exuproc | Decentralized Exam Platform</title>
         <link rel="icon" href="/only_logo_white.png" type="image/png" />
         <meta name="theme-color" content="#0b0f1a" />
       </head>
