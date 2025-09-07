@@ -1115,6 +1115,29 @@ export default function StudentDashboard(): JSX.Element {
     </div>
   );
 }
-function checkStudentSubmission(studentAddress: string, examId: bigint) {
-  throw new Error("Function not implemented.");
+async function checkStudentSubmission(
+  studentAddress: string,
+  examId: bigint
+): Promise<boolean> {
+  try {
+    // Replace with your contract call logic
+    const result = await useReadContract({
+      contract,
+      method:
+        "function hasSubmitted(uint256 examId, address student) view returns (bool)",
+      params: [examId, studentAddress],
+    });
+    // If result is an object with a 'data' property, return result.data
+    if (result && typeof result.data === "boolean") {
+      return result.data;
+    }
+    // If result is directly boolean
+    if (typeof result === "boolean") {
+      return result;
+    }
+    return false;
+  } catch (error) {
+    console.error("Error in checkStudentSubmission:", error);
+    return false;
+  }
 }

@@ -1,7 +1,12 @@
 import React from "react";
+import ExuprocLandingComplete from "../components/Completelanding";
 
 const page = () => {
-  return <div>page</div>;
+  return (
+    <div>
+      <ExuprocLandingComplete />
+    </div>
+  );
 };
 
 export default page;
