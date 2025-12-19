@@ -1,9 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { pinata } from "../../../../../utils/config";
-import { getExamContract } from "@/utils/blockchain";
 
-export const dynamic = "force-dynamic";
 
 // Explicitly type the params to match what Next.js expects
 export async function GET(
