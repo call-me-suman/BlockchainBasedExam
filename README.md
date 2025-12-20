@@ -1,6 +1,6 @@
-## Eduledger – Blockchain-based Exam Platform
+## Exuproc – Blockchain-based Exam Platform
 
-Eduledger is a decentralized, voice-enabled online examination system built on Next.js, Thirdweb, and Pinata. Exams and results are stored on IPFS, while critical actions are recorded on-chain (Sepolia), ensuring transparency, immutability, and tamper resistance. Optional proctoring hooks provide basic integrity checks.
+Exuproc is a decentralized, voice-enabled online examination system built on Next.js, Thirdweb, and Pinata. Exams and results are stored on IPFS, while critical actions are recorded on-chain (Sepolia), ensuring transparency, immutability, and tamper resistance. Optional proctoring hooks provide basic integrity checks.
 
 ### Key Features
 
